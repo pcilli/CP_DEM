@@ -14,4 +14,4 @@ Cross-property DEM Toolbox. Written by Phil Cilli, 6 January 2021.
 [GNU GPLv3](https://choosealicense.com/licenses/gpl-3.0/)
 
 ## Disclaimer
-> Although the author \emph{thinks} everything in this toolbox is coded correctly, they take no responsibility for the performance and accuracy of its scripts and functions, and do not provide any warranties. Ultimately, the toolbox is used solely at the user's risk.
+> Although the author thinks everything in this toolbox is coded correctly, they take no responsibility for the performance and accuracy of its scripts and functions, and do not provide any warranties. Ultimately, the toolbox is used solely at the user's risk.
