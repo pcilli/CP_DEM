@@ -1,5 +1,5 @@
 # CP_DEM
-Cross-property DEM Toolbox. Written by Phil Cilli, 6 January 2021.
+Cross-Property DEM Toolbox. Written by Phil Cilli, 6 January 2021.
 
 ## Introduction
 
