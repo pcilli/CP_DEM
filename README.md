@@ -3,7 +3,7 @@ Cross-property DEM Toolbox. Written by Phil Cilli, 6 January 2021.
 
 ## Introduction
 
-> A set of MATLAB scripts and functions which model a composite or porous material's elastic properties from its electrical properties, and vice versa, using the theory of Cilli and Chapman (2021) [DOI:10.1093/gji/ggab046]. See "ReleaseNotes_CP_DEM.pdf" in the main branch for further details. Please feel free to get in touch with issues, discussion points, or suggestions for new features: phillip.cilli"AT"earth.ox.ac.uk
+> A set of MATLAB scripts and functions which model a composite or porous material's elastic properties from its electrical properties, and vice versa, using the theory of Cilli and Chapman (2021) [DOI:10.1093/gji/ggab046]. See "ReleaseNotes_CP_DEM.pdf" in the main branch for further details. Please feel free to get in touch with issues, discussion points, or suggestions for new features: phillip.cilli"AT"earth.ox.ac.uk.
 ## Installation
 
 > Add all scripts and functions into MATLAB filepath.
