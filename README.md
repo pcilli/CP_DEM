@@ -15,3 +15,6 @@ Cross-Property DEM Toolbox. Written by Phil Cilli, 6 January 2021.
 
 ## Disclaimer
 > Although the author thinks everything in this toolbox is coded correctly, they take no responsibility for the performance and accuracy of its scripts and functions, and do not provide any warranties. Ultimately, the toolbox is used solely at the user's risk.
+
+## References
+Cilli, P.A., and Chapman, M. (2021), Linking elastic and electrical properties of rocks using cross-property DEM. Geophysical Journal International, DOI:10.1093/gji/ggab046
