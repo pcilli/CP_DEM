@@ -1,92 +1,72 @@
-%% Example: Model Vp/Vs ratios
+%% Example: Model Vp, Vs and Vp/Vs from electrical conductivity
 %
-% An example script demonstrating how to estimate Vp/Vs ratios from
-% electrical measurements using function "cpdem_Forward".
+% Estimates P- and S-wave velocities and their ratio from resistivity with
+% cpdem_ModelVpVs, which models the bulk modulus with alpha_K and the shear
+% modulus with alpha_mu (both are needed, as Cilli and Chapman (2021) find
+% they differ for real rocks) and converts to velocities with a density.
+% Three density options are compared: the porosity implied by the model
+% itself, measured densities, and the Gardner et al. (1974) relation used
+% in v1.0 of the toolbox.
 %
 % References:
 % Cilli, P.A., and Chapman, M. (2021), Linking elastic and electrical
 % properties of rocks using cross-property DEM. Geophysical Journal
-% International, DOI:10.1093/gji/ggab046
-% 
-% Han, T., Best, A.I., Sothcott, J. and MacGregor, L.M. (2011), Joint
-% elastic?electrical properties of reservoir sandstones and their
-% relationships with petrophysical parameters. Geophysical Prospecting, 59:
-% 518-535. DOI:10.1111/j.1365-2478.2010.00940.x
+% International, 225(3), 1812-1823, DOI:10.1093/gji/ggab046
 %
 % Gardner, G. H. F., Gardner, L. W., & Gregory, A. R. (1974). Formation
-% velocity and density—The diagnostic basics for stratigraphic traps.
+% velocity and density - The diagnostic basics for stratigraphic traps.
 % Geophysics, 39(6), 770-780.
-% 
-% Written by Phil Cilli, January 2021 as a part of CP_DEM Version 1.0
-
-close all
-clear all
-
-%Set random number generator seed for general reproduceability
-rng(1,'twister');
-
-%% Preamble
-% Here we need to model both effective bulk modulus using K-EPAR then model
-% shear modulus using mu-EPAR, so both EPARs need to be known before
-% modelling (Cilli and Chapman (2021) show they seem to be different in
-% general for real rocks as real rocks do not honour the assumptions of
-% theoretical inclusion modelling).
-
-% See script "cpdem_ModelModuli_Template" for more details on how to use
-% function "cpdem_Forward".
-
-%% Model moduli
-% Make sure both K-EPAR and mu-EPAR are set for this script to run. Cilli
-% and Chapman (2021) calibrate their model to the sandstone data of Han et
-% al. (2011) at 60 MPa differential pressure, finding the following EPARs:
 %
-% Mixed sandstones:
-% K-EPAR  = 16.4
-% mu-EPAR = 12.8
-%
-% Clean sandstones:
-% K-EPAR  = 16.6
-% mu-EPAR = 12.3
-%
-% Clay-bearing sandstones:
-% K-EPAR  = 16.3
-% mu-EPAR = 12.9
-%
-% The function cpdem_Forward is set up here for a vector of measurements
-% and scalar parameters. To use sample-dependent parameters in a vector
-% form, put index "(ii)" after any vector parameters listed in the
-% functions argument. Make sure there is one parameter per measurement in
-% this case, so the parameter and measurement (sig0) vectors have the same
-% length.
+% Part of the Cross-Property DEM Toolbox (CP_DEM) v2.0.
 
-kModel  = zeros(size(sig0));
-muModel = zeros(size(sig0));
+%% Set up
+p = cpdem_ExampleParameters();
+res0 = logspace(log10(1), log10(200), 60);
+sig0 = 1./res0;
 
-for ii = 1 : numel(sig0)
-    
-    %Forward model bulk modulus with K-EPAR
-    [kTmp,muTmp] = cpdem_Forward(k1,mu1,sig1,k2,mu2,sig2,sig0(ii),kepar);
-    kModel(ii)  = kTmp;
-    
-    %Forward model shear modulus with mu-EPAR
-    [kTmp,muTmp] = cpdem_Forward(k1,mu1,sig1,k2,mu2,sig2,sig0(ii),muepar);
-    muModel(ii)  = muTmp;
-    
+%% Velocities with a density from the model's implied porosity
+% rho = (1 - phi) rho1 + phi rho2 with phi the porosity the electrical DEM
+% implies for each conductivity (mean of the alpha_K and alpha_mu paths).
+dens = struct('method', 'implied', 'rho1', p.rho1, 'rho2', p.rho2);
+imp = cpdem_ModelVpVs(p.k1,p.mu1,p.sig1,p.k2,p.mu2,p.sig2,sig0,p.eparK,p.eparMu,dens);
+
+%% ... with the Gardner relation (sandstones only; v1.0 behaviour)
+gar = cpdem_ModelVpVs(p.k1,p.mu1,p.sig1,p.k2,p.mu2,p.sig2,sig0,p.eparK,p.eparMu);
+
+%% ... and with "measured" densities (here taken from the implied porosity)
+mea = cpdem_ModelVpVs(p.k1,p.mu1,p.sig1,p.k2,p.mu2,p.sig2,sig0,p.eparK,p.eparMu, ...
+                      struct('method', 'measured', 'rho', imp.rho));
+
+fprintf('%12s %8s %8s %8s %8s %8s\n', 'rho (ohm m)', 'Vp', 'Vs', 'Vp/Vs', 'phi', 'rho_b');
+for jj = [1 15 30 45 60]
+    fprintf('%12.1f %8.0f %8.0f %8.3f %8.3f %8.0f\n', res0(jj), imp.vp(jj), imp.vs(jj), ...
+        imp.vpvs(jj), (imp.phiK(jj) + imp.phiMu(jj))/2, imp.rho(jj));
+end
+fprintf('\nVp/Vs does not depend on density; Vp differs by up to %.1f %% between the\n', ...
+    100*max(abs(gar.vp - imp.vp)./imp.vp));
+fprintf('implied-porosity and Gardner densities over this sweep.\n');
+
+%% Compare the three published calibrations
+tab = cpdem_PublishedEPAR();
+vpvs = zeros(numel(tab), numel(sig0));
+for ii = 1:numel(tab)
+    o = cpdem_ModelVpVs(p.k1,p.mu1,p.sig1,p.k2,p.mu2,p.sig2,sig0,tab(ii).eparK,tab(ii).eparMu,dens);
+    vpvs(ii,:) = o.vpvs;
 end
 
-%% Convert to velocities and calculate vp/vs
-% Convert moduli to velocities. Here we use the Gardner et al. (1974)
-% relation which is only appropriate for sandstones and is useful when
-% density is not available. If reliable density measurements are available,
-% it is probably better to use them and the equations of linear elasticity
-% to estimate velocities.
-
-%Gardner relation parameters
-alpha = 0.31*1000; %scale by 1000 for a density in kg/m^3
-beta  = 0.25;
-
-%Gardner relations
-vp = ((kModel+4./3.*muModel)./alpha).^(1/(2+beta));
-vs = sqrt(muModel./(alpha.* vp.^beta));
-
-VpVsRatio  = vp./vs;
+%% Plot
+if cpdem_PlotsEnabled()
+    fig = figure('Name', 'Velocities from resistivity');
+    subplot(1,2,1)
+    semilogx(res0, imp.vp, 'LineWidth', 1.5); hold on
+    semilogx(res0, gar.vp, '--', 'LineWidth', 1.5);
+    semilogx(res0, imp.vs, 'LineWidth', 1.5);
+    semilogx(res0, gar.vs, '--', 'LineWidth', 1.5);
+    grid on; xlabel('Resistivity (\Omega m)'); ylabel('Velocity (m/s)');
+    legend({'Vp, implied \rho', 'Vp, Gardner \rho', 'Vs, implied \rho', 'Vs, Gardner \rho'}, 'Location', 'SouthEast');
+    subplot(1,2,2)
+    semilogx(res0, vpvs', 'LineWidth', 1.5);
+    grid on; xlabel('Resistivity (\Omega m)'); ylabel('Vp/Vs');
+    legend({tab.description}, 'Location', 'NorthEast');
+    cpdem_FinishFigure(fig, 'ModelVpVs');
+end

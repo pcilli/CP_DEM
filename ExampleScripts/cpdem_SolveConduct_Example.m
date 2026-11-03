@@ -1,98 +1,72 @@
-%% Example: Invert for electrical conductivity
+%% Example: Invert for electrical conductivity from elastic moduli
 %
-% An example script demonstrating how to invert for electrical conductivity
-% from elastic measurements using function "cpdem_Inverse".
+% Inverts measured bulk or shear moduli for conductivity with the
+% cross-property DEM. Since v2.0 this is done directly, by integrating the
+% cross-property equations with the modulus as the independent variable
+% (cpdem_Inverse), which is exact to solver tolerance and fast. The v1.0
+% bounded-search interface (cpdem_InvertConduct) is retained.
+%
+% As discussed by Cilli and Chapman (2021), a different EPAR is needed for
+% each modulus: sigma_K is obtained from the bulk modulus with alpha_K, and
+% sigma_mu from the shear modulus with alpha_mu. They found sigma_mu to be
+% the better estimate of the true conductivity for the clay-bearing
+% sandstones of Han et al. (2011), where the shear modulus-conductivity
+% cross-plot scatters less than the bulk modulus one; for the few clean
+% sandstones sigma_K was slightly better.
+%
+% The data are SYNTHETIC (see cpdem_SyntheticData).
 %
 % References:
 % Cilli, P.A., and Chapman, M. (2021), Linking elastic and electrical
 % properties of rocks using cross-property DEM. Geophysical Journal
-% International, DOI:10.1093/gji/ggab046
-% 
+% International, 225(3), 1812-1823, DOI:10.1093/gji/ggab046
+%
 % Han, T., Best, A.I., Sothcott, J. and MacGregor, L.M. (2011), Joint
-% elastic?electrical properties of reservoir sandstones and their
-% relationships with petrophysical parameters. Geophysical Prospecting, 59:
-% 518-535. DOI:10.1111/j.1365-2478.2010.00940.x
+% elastic-electrical properties of reservoir sandstones and their
+% relationships with petrophysical parameters. Geophysical Prospecting,
+% 59, 518-535, DOI:10.1111/j.1365-2478.2010.00940.x
 %
-% Written by Phil Cilli, January 2021 as a part of CP_DEM Version 1.0
+% Part of the Cross-Property DEM Toolbox (CP_DEM) v2.0.
 
-close all
-clear all
+%% Data
+p = cpdem_ExampleParameters();
+d = cpdem_SyntheticData(p);
 
-%Set random number generator seed for general reproduceability
-rng(1,'twister'); 
+%% Direct inversion
+tic
+[sigK, phiK]   = cpdem_Inverse(d.k0,  'K',  p.k1,p.mu1,p.sig1,p.k2,p.mu2,p.sig2, p.eparK);
+[sigMu, phiMu] = cpdem_Inverse(d.mu0, 'mu', p.k1,p.mu1,p.sig1,p.k2,p.mu2,p.sig2, p.eparMu);
+t = toc;
 
-%% Preamble
-% To solve for conductivity, you will need to set the following
-% variables. They can either be scalar values (that is, for a single
-% measurement), or vectors, for a set of measurements. This has only been
-% tested with moduli units Pa and conductivity units 1/(ohm m).
-%
-% k1:   Measured (effective) bulk modulus 
-% mu1:  Measured (effective) shear modulus
-% sig0: Measured (effective) conductivity 
-%
-% k1:   Background (mineral) bulk modulus 
-% mu1:  Background (mineral) shear modulus
-% sig1: Background (mineral) conductivity 
-%
-% k2:   Inclusion (pore fluid) bulk modulus 
-% mu2:  Inclusion (pore fluid) shear modulus 
-% sig2: Inclusion (pore fluid) conductivity 
-%
-% Note, a different EPAR - bulk or shear modulus EPAR - must be used when
-% inverting for resistivity by minimising misfit in bulk modulus (sigma_k)
-% or in shear modulus (sigma_mu), as discussed by Cilli and Chapman (2021).
-% Cilli and Chapman (2021) find sigma_mu is a better approximator of true
-% sigma in the clay-bearing sandstones of Han et al. (2011) as there is
-% less scatter in the shear modulus-conductivity cross-plot than that of
-% bulk modulus-conductivity. For the clean sandstones of Han et al. (2011),
-% they find sigma_k is a slightly better approximator of the true sigma
-% than sigma_mu, but this is based on few samples and so its significance
-% is dubious.
-%
-% Cilli and Chapman (2021) calibrate their model to the sandstone data of
-% Han et al. (2011) at 60 MPa differential pressure, finding the following
-% EPARs:
-%
-% Mixed sandstones:
-% K-EPAR  = 16.4
-% mu-EPAR = 12.8
-%
-% Clean sandstones:
-% K-EPAR  = 16.6
-% mu-EPAR = 12.3
-%
-% Clay-bearing sandstones:
-% K-EPAR  = 16.3
-% mu-EPAR = 12.9
+errK  = 100*abs(sigK  - d.sig0)./d.sig0;
+errMu = 100*abs(sigMu - d.sig0)./d.sig0;
+fprintf('Inverted %d samples twice in %.2f s.\n', numel(d.sig0), t);
+fprintf('Mean absolute error in conductivity from %.0f %% noise in the moduli:\n', 100*d.noiseLevel);
+fprintf('  sigma_K : %.1f %%   sigma_mu: %.1f %%\n', mean(errK), mean(errMu));
+fprintf('(Conductivity is sensitive to the moduli: a small modulus error maps to a\n');
+fprintf(' larger conductivity error, more so at low conductivity where the moduli\n');
+fprintf(' change slowly with log resistivity.)\n');
 
-%% Set options
-% modFlag = 0 -> solve for sigma_k using K-EPAR
-% modFlag = 1 -> solve for sigma_mu using mu-EPAR
-modFlag = 0;
+%% Measurements the model cannot reach
+% A modulus at or above the mineral modulus, or at or below the fluid
+% modulus, has no conductivity in the model: cpdem_Inverse returns NaN
+% with a warning, whereas the v1.0 wrapper returns the nearest bound.
+ws = warning('off', 'CPDEM:outOfRange');
+sBad = cpdem_Inverse([p.k1*1.02, d.k0(5)], 'K', p.k1,p.mu1,p.sig1,p.k2,p.mu2,p.sig2, p.eparK);
+warning(ws);
+fprintf('\nUnreachable modulus -> %s; reachable one -> %.4f S/m\n', mat2str(sBad(1)), sBad(2));
 
-%normFlag = 1 -> minimise l1 norm of residuals
-%normFlag = 2 -> minimise l2 norm of residuals (default)
-normFlag = 2;
+%% v1.0 interface
+% (k0, mu0, parameters, EPAR, lower/upper conductivity bounds, modFlag 0/1
+% for K/mu, normFlag, paramFlag)
+sigK_v1 = cpdem_InvertConduct(d.k0, d.mu0, p.k1,p.mu1,p.sig1,p.k2,p.mu2,p.sig2, p.eparK, p.sig1, p.sig2, 0, 2, 0);
+fprintf('cpdem_InvertConduct agrees with cpdem_Inverse to %.1e (relative).\n', max(abs(sigK_v1 - sigK)./sigK));
 
-% paramFlag = 0:
-% All parameters are scalars (the same for a whole dataset), but
-% measurements k0, mu0, sig0 can still be vectors, all of equal length.
-%
-% paramFlag = 1
-% All parameters are sample dependent, so all k's, mu's, and sig's going
-% into the solver are vectors of the same length.
-%
-% Obviously these scripts can be edited so some parameters are vectors
-% (e.g. background properties) while others are scalars (e.g. constant
-% fluid properties).
-paramFlag = 0;
-
-%% Solve for EPAR
-%Solver's search bounds
-lb = sig1;
-ub = sig2;
-
-%use K-EPAR here to find sigma_k or mu-EPAR to find sigma_mu.
-sigInv = cpdem_InvertConduct(k0,mu0,k1,mu1,sig1,k2,mu2,sig2,epar,lb,ub,modFlag,normFlag,paramFlag);
-
+%% Plot
+if cpdem_PlotsEnabled()
+    fig = figure('Name', 'Conductivity inversion');
+    loglog(d.res0, 1./sigK, 'o', d.res0, 1./sigMu, 's', d.res0, d.res0, 'k-'); grid on
+    xlabel('True resistivity (\Omega m)'); ylabel('Inverted resistivity (\Omega m)');
+    legend({'from K with \alpha_K', 'from \mu with \alpha_\mu', '1:1'}, 'Location', 'NorthWest');
+    cpdem_FinishFigure(fig, 'SolveConduct');
+end
