@@ -1,4 +1,4 @@
-function dy = cpdem_Deriv(u, y, k1, k2, mu2, sig1, sig2, epar)
+function dy = cpdem_Deriv(u, y, k1, k2, mu2, sig1, sig2, epar, form)
 % Derivative of the cross-property DEM system used in cpdem_Forward
 %
 % Evaluates the right-hand side of the cross-property DEM equations of
@@ -23,6 +23,10 @@ function dy = cpdem_Deriv(u, y, k1, k2, mu2, sig1, sig2, epar)
 % meaningful. Both were sources of the few-percent solver noise in v1.0.
 %
 % EPAR may be a scalar or a function handle of porosity (cpdem_EvalEPAR).
+% The optional FORM argument selects the written form of the paper's
+% equations: 'mbar' (default; equations 18 & 19) or 'R' (equations 20 & 21,
+% with Berryman's R = m-bar/(3 sig), so that the denominators read
+% 3 sig (sig2 - sig) R). The two are algebraically identical.
 %
 % References:
 % Cilli, P.A., and Chapman, M. (2021), Linking elastic and electrical
@@ -48,10 +52,17 @@ phi = y(3);
 alpha = cpdem_EvalEPAR(epar, phi);
 
 [p, q] = cpdem_PQ(K, mu, k2, mu2, alpha);  % From Berryman (1980)
-mb     = mbar(sig, sig2, alpha);           % From Cilli and Chapman (2021)
 
 % g = sig d(.)/d sig per unit (1 - phi): the electrical DEM "speed".
-g = sig/((sig2 - sig)*mb);
+if nargin < 9 || strcmpi(form, 'mbar')
+    mb = mbar(sig, sig2, alpha);           % m-bar, Cilli and Chapman (2021) eqs 18 & 19
+    g  = sig/((sig2 - sig)*mb);
+elseif strcmpi(form, 'R')
+    r  = R(sig, sig2, alpha);              % Berryman (1995) R, eqs 20 & 21
+    g  = sig/(3*sig*(sig2 - sig)*r);
+else
+    error('CPDEM:badOptions', 'Form must be ''mbar'' or ''R''.');
+end
 
 dy = [ (k2 - K)*p*g/k1;
        (mu2 - mu)*q*g/k1;

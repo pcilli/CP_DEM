@@ -147,6 +147,36 @@ as a third state so that it can be reported and so that α may be a function
 of porosity. The theory, conventions, limits and numerical scheme are set
 out in [docs/Theory.md](docs/Theory.md).
 
+## What is from the papers and what is not
+
+The core of the toolbox is exactly the model of Cilli and Chapman (2021);
+the table says where each piece comes from. Features marked *extension*
+are additions of this toolbox that are consistent with the theory but are
+not described in the papers; none of them is used unless you ask for it,
+and every default reproduces the paper's choice.
+
+| Piece | Source |
+|---|---|
+| Cross-property equations `dK/dσ`, `dμ/dσ` (`cpdem_Forward`, `cpdem_Deriv`) | Cilli and Chapman (2021), equations 18–19 (m̄ form, default) and 20–21 (R form, `Form = 'R'`), identical |
+| $\bar m$ (`mbar`), $R$ (`R`) | Cilli and Chapman (2021); Berryman (1995); depolarisation factors from Osborn (1945) |
+| $P$, $Q$, θ, f (`cpdem_PQ`, `cpdem_Shape`) | Berryman (1980, 1992), as used in the paper |
+| Separate bulk and shear modulus EPARs, prolate pores, published values | Cilli and Chapman (2021) |
+| Calibration by minimising the misfit in one modulus (`cpdem_CalibrateEPAR`, `cpdem_SolveEPAR`) | Cilli and Chapman (2021); the log-space bounded search is a numerical detail |
+| Conductivity from a modulus (`cpdem_Inverse`, `cpdem_InvertConduct`), $\sigma_K$ and $\sigma_\mu$ | Cilli and Chapman (2021); solving the same equations with the modulus as the independent variable is a numerical detail |
+| Vp/Vs from resistivity with the Gardner (1974) density (`cpdem_ModelVpVs`, default) | Cilli and Chapman (2021) |
+| Electrical–elastic Hashin–Shtrikman bounds (`cpdem_ElecElasHS`) | Carcione et al. (2007), as used in the paper |
+| Single-property DEMs (`cpdem_ElecDEM`, `cpdem_ElasDEM`) | The two schemes the paper combines; `cpdem_ElecDEM` also evaluates the grain-inclusion form of Cilli and Chapman (2020) and Sen et al. (1981), see its help |
+| Porosity-dependent aspect ratio (`epar = @(phi) ...`) | The power-law construction of Cilli and Chapman (2020), with the law supplied by you |
+| Thermal from electrical conductivity (`cpdem_ForwardConduct`) | Cilli and Chapman (2021), arXiv:2102.12434 |
+| Implied porosity output and `cpdem_ImpliedPorosity` | *extension*: a diagnostic; porosity is a dummy variable of the model and the DEM porosity need not equal the true porosity |
+| Density from the implied porosity (`dens.method = 'implied'`) | *extension*: not in the paper, which used Gardner's relation |
+| Integration in log conductivity, scaled state, tolerances, one integration per data set | numerical scheme only; the equations are unchanged (see `docs/Theory.md`) |
+
+Han et al. (2022) have since assessed the applicability of the
+cross-property DEM to reservoir sandstones independently; users modelling
+real data should read both that paper and the discussion of clay-bearing
+rocks in Cilli and Chapman (2021).
+
 ## Functions
 
 | Function | Purpose |
@@ -160,7 +190,7 @@ out in [docs/Theory.md](docs/Theory.md).
 | `cpdem_ImpliedPorosity` | Porosity the electrical DEM implies for a conductivity |
 | `cpdem_ElecElasHS` | Electrical–elastic Hashin–Shtrikman bounds and the porosity bounds behind them |
 | `cpdem_PublishedEPAR` | The EPAR calibrations published by Cilli and Chapman (2021) |
-| `cpdem_Options` | Solver tolerances and calibration options |
+| `cpdem_Options` | Solver tolerances, the written form of the equations (`'mbar'` or `'R'`) and calibration options |
 | `cpdem_SolveEPAR`, `cpdem_InvertConduct` | v1.0 interfaces, kept for backward compatibility |
 
 Subfunctions in `Functions/Subfunctions` evaluate the geometry
@@ -272,6 +302,7 @@ If you use the toolbox, please cite the paper that describes the model
 - Cilli, P. A., and Chapman, M. (2022). On the pressure (in)dependence of cross-property relations. EGU General Assembly 2022, EGU22-9251.
 - Eshelby, J. D. (1957). The determination of the elastic field of an ellipsoidal inclusion, and related problems. *Proc. R. Soc. Lond. A*, 241(1226), 376–396.
 - Gardner, G. H. F., Gardner, L. W., and Gregory, A. R. (1974). Formation velocity and density — The diagnostic basics for stratigraphic traps. *Geophysics*, 39(6), 770–780.
+- Han, T., et al. (2022). Applicability of cross-property differential effective medium model to the joint elastic–electrical properties of reservoir sandstones. *Geophys. Prospect.* doi:10.1111/1365-2478.13233
 - Han, T., Best, A. I., Sothcott, J., and MacGregor, L. M. (2011). Joint elastic-electrical properties of reservoir sandstones and their relationships with petrophysical parameters. *Geophys. Prospect.*, 59(3), 518–535. doi:10.1111/j.1365-2478.2010.00940.x
 - Mendelson, K. S., and Cohen, M. H. (1982). The effect of grain anisotropy on the electrical properties of sedimentary rocks. *Geophysics*, 47(2), 257–263.
 - Osborn, J. A. (1945). Demagnetizing factors of the general ellipsoid. *Phys. Rev.*, 67(11–12), 351–357. doi:10.1103/PhysRev.67.351

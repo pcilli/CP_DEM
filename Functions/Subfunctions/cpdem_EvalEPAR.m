@@ -6,7 +6,10 @@ function alpha = cpdem_EvalEPAR(epar, phi)
 % EPAR may be
 %   * a positive scalar: a constant aspect ratio (Cilli & Chapman 2021);
 %   * a function handle alpha = epar(phi) giving the aspect ratio as a
-%     function of porosity, e.g. the power law of Cilli & Chapman (2020),
+%     function of the inclusion volume fraction along the DEM path (the
+%     porosity when pores are the inclusions, as in the cross-property DEM;
+%     the grain fraction in a grain-inclusion model), e.g. the power law of
+%     Cilli & Chapman (2020),
 %     epar = @(phi) max(a*phi.^b, floor). Because porosity is carried as
 %     a state variable along every DEM path in this toolbox, such a
 %     relation can be used in all forward and inverse calculations. The

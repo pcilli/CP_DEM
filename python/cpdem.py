@@ -168,7 +168,7 @@ def _in_range(x, a, b):
 # --------------------------------------------------------------------------
 # Cross-property DEM: elastic <-> electrical
 # --------------------------------------------------------------------------
-def forward(k1, mu1, sig1, k2, mu2, sig2, sig0, epar: EPAR, rtol=1e-10, atol=1e-13):
+def forward(k1, mu1, sig1, k2, mu2, sig2, sig0, epar: EPAR, rtol=1e-10, atol=1e-13, form="mbar"):
     """Bulk modulus, shear modulus and implied porosity from conductivity.
 
     Integrates dK/dsig = (K2-K) P/((sig2-sig) m-bar), dmu/dsig = (mu2-mu) Q/
@@ -176,8 +176,11 @@ def forward(k1, mu1, sig1, k2, mu2, sig2, sig0, epar: EPAR, rtol=1e-10, atol=1e-
     (sig1, k1, mu1, 0) to each sig0, in the scaled variables u = ln(sig/sig1),
     y = [K/k1, mu/k1, phi]. Returns arrays shaped like sig0 (NaN outside
     (sig1, sig2)). Parameters may be per-sample arrays; EPAR may be a scalar,
-    a per-sample array or a function of porosity.
+    a per-sample array or a function of porosity. form = "mbar" evaluates
+    equations 18-19 of the paper, form = "R" the identical equations 20-21.
     """
+    if form not in ("mbar", "R"):
+        raise ValueError("form must be 'mbar' or 'R'")
     sig0 = np.asarray(sig0, float)
     shp = sig0.shape
     s0 = sig0.ravel()
@@ -199,7 +202,10 @@ def forward(k1, mu1, sig1, k2, mu2, sig2, sig0, epar: EPAR, rtol=1e-10, atol=1e-
             K, mu, phi = y[0]*k1_, y[1]*k1_, y[2]
             a = _eval_epar(e, phi)
             p, q = PQ(K, mu, k2_, mu2_, a)
-            g = sig/((sig2_ - sig)*mbar(sig, sig2_, a))
+            if form == "mbar":
+                g = sig/((sig2_ - sig)*mbar(sig, sig2_, a))
+            else:
+                g = sig/(3*sig*(sig2_ - sig)*R_berryman(sig, sig2_, a))
             return [(k2_ - K)*p*g/k1_, (mu2_ - mu)*q*g/k1_, (1 - phi)*g]
         return deriv
 

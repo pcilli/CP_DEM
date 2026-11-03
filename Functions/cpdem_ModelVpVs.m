@@ -8,7 +8,14 @@ function out = cpdem_ModelVpVs(k1,mu1,sig1,k2,mu2,sig2,sig0,kepar,muepar,dens,op
 % Follows Cilli and Chapman (2021): the bulk modulus is modelled with the
 % bulk modulus EPAR (alpha_K) and the shear modulus with the shear modulus
 % EPAR (alpha_mu), each with cpdem_Forward, and the moduli are converted to
-% velocities with a bulk density. Vp/Vs itself needs no density.
+% velocities with a bulk density. In the paper, Vp/Vs trends for mixed wet
+% sandstones are predicted in the absence of porosity and density
+% measurements by combining the modelled moduli with the Gardner et al.
+% (1974) velocity-density relation for sandstones; that is the default
+% here ('gardner'). Measured densities ('measured') are the natural
+% alternative when available. The 'implied' option, which builds a density
+% from the porosity the electrical DEM passes through, is an extension of
+% this toolbox and not part of the paper. Vp/Vs itself needs no density.
 %
 % Inputs
 %   k1,mu1,sig1,k2,mu2,sig2,sig0 : as in cpdem_Forward (sig0 may be an array)

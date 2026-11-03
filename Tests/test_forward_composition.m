@@ -29,6 +29,19 @@ for epar = [16.4 1 0.1]
         'moduli must decrease and porosity increase with conductivity');
 end
 
+% Equations 18 & 19 (m-bar form) and 20 & 21 (R form) of the paper give the
+% same result
+[kA, muA, phiA] = cpdem_Forward(p.k1, p.mu1, p.sig1, p.k2, p.mu2, p.sig2, p.sig0, 16.4, struct('Form', 'mbar'));
+[kB, muB, phiB] = cpdem_Forward(p.k1, p.mu1, p.sig1, p.k2, p.mu2, p.sig2, p.sig0, 16.4, struct('Form', 'R'));
+cpdem_AssertClose([kB muB phiB], [kA muA phiA], 1e-12, 0, 'm-bar and R forms');
+threw = false;
+try
+    cpdem_Forward(p.k1, p.mu1, p.sig1, p.k2, p.mu2, p.sig2, 0.1, 16.4, struct('Form', 'x'));
+catch
+    threw = true;
+end
+assert(threw, 'unknown Form must throw');
+
 % Output keeps the shape of sig0, and sig0 == sig1 returns the background
 [k0, mu0, phi0] = cpdem_Forward(p.k1, p.mu1, p.sig1, p.k2, p.mu2, p.sig2, [p.sig1 0.1; 0.2 0.3], 16.4);
 assert(isequal(size(k0), [2 2]) && isequal(size(mu0), [2 2]) && isequal(size(phi0), [2 2]), 'shape');

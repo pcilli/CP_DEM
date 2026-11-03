@@ -15,9 +15,19 @@ function [sig, mb] = cpdem_ElecDEM(phi, sig1, sig2, epar, opts)
 % closed form (sig - sig2)/(sig1 - sig2) (sig1/sig)^(1/3) = 1 - phi; for
 % insulating inclusions (sig2 = 0) it is Archie's law, sig = sig1 (1 -
 % phi)^m-bar, with the aspect-ratio dependent cementation exponent of Sen
-% et al. (1981) and Mendelson and Cohen (1982). Cilli and Chapman (2020)
-% show that letting EPAR vary with porosity (pass EPAR as a function
-% handle) generalises Archie's law with a porosity-dependent exponent.
+% et al. (1981) and Mendelson and Cohen (1982).
+%
+% Phase roles. In the cross-property DEM of Cilli and Chapman (2021) the
+% mineral is the host and the brine-filled pores are the inclusions
+% (sig1 = mineral, sig2 = fluid, phi = porosity). The electrical model of
+% Cilli and Chapman (2020) and of Sen et al. (1981) instead embeds
+% insulating grains in a conducting fluid host; to evaluate that form call
+%   sig = cpdem_ElecDEM(1 - phi, sigFluid, sigGrain, grainEPAR)
+% i.e. with the inclusion fraction 1 - phi and the grain aspect ratio. A
+% porosity-dependent aspect ratio, as in the power law of Cilli and Chapman
+% (2020), is passed as a function handle of the INCLUSION fraction (the
+% state carried along the path): epar = @(f) law(1 - f) in the grain-
+% inclusion form, epar = @(phi) law(phi) in the pore-inclusion form.
 %
 % Inputs
 %   phi  : porosity, scalar or array, 0 <= phi < 1

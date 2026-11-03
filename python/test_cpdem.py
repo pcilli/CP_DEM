@@ -48,6 +48,13 @@ def test_forward_composition_and_monotonic():
         assert np.all(np.diff(k0) < 0) and np.all(np.diff(mu0) < 0) and np.all(np.diff(phi0) > 0)
 
 
+def test_mbar_and_R_forms_agree():
+    a = cpdem.forward(**P, sig0=SIG0, epar=16.4, form="mbar")
+    b = cpdem.forward(**P, sig0=SIG0, epar=16.4, form="R")
+    for x, y in zip(a, b):
+        assert np.allclose(x, y, rtol=1e-12, atol=1e-14)
+
+
 def test_bruggeman_closed_form():
     phi = np.array([0.05, 0.1, 0.2, 0.3])
     s = cpdem.elec_dem(phi, P["sig1"], P["sig2"], 1.0)

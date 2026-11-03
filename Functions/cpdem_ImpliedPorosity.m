@@ -9,10 +9,12 @@ function phi = cpdem_ImpliedPorosity(sig0, sig1, sig2, epar, opts)
 %   d phi/d sig = (1 - phi) / ((sig2 - sig) m-bar(sig, sig2, EPAR))
 %
 % from sig = sig1 (phi = 0) to each measured conductivity sig0. Porosity is
-% a dummy variable in the cross-property DEM of Cilli and Chapman (2021),
-% so this is the porosity the model "passes through" to reach a
-% measurement; it is a useful diagnostic and gives a consistent bulk
-% density for velocity modelling (cpdem_ModelVpVs).
+% a dummy variable in the cross-property DEM of Cilli and Chapman (2021)
+% and does not enter its predictions; this function is a diagnostic
+% extension of the toolbox that reports the porosity the DEM path "passes
+% through" to reach a measurement. For a real rock it need not equal the
+% true porosity (EPAR is an effective parameter), so treat it as a model
+% quantity, e.g. for the 'implied' density option of cpdem_ModelVpVs.
 %
 % Inputs
 %   sig0 : measured conductivity, scalar or array, between sig1 and sig2

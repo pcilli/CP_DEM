@@ -13,9 +13,11 @@ function [k0, mu0, phi0] = cpdem_Forward(k1,mu1,sig1,k2,mu2,sig2,sig0,epar,opts)
 %   dmu/d sig = (mu2 - mu) Q / ((sig2 - sig) m-bar)
 %
 % with K(sig1) = k1 and mu(sig1) = mu1. Porosity is a dummy variable of the
-% model; it is nevertheless integrated alongside (dphi/dsig = (1 - phi) /
-% ((sig2 - sig) m-bar)) and returned as the third output, the porosity the
-% electrical DEM implies for each measurement.
+% model and plays no part in the result. As a diagnostic (not part of the
+% paper's model) the electrical DEM porosity is integrated alongside,
+% dphi/dsig = (1 - phi)/((sig2 - sig) m-bar), and returned as the optional
+% third output: it is the porosity the DEM path passes through to reach a
+% measurement, which need not equal the true porosity of a real rock.
 %
 % Inputs (SI units are recommended: moduli in Pa, conductivity in S/m)
 %   k1, mu1, sig1 : background (mineral) bulk modulus, shear modulus and
@@ -30,7 +32,9 @@ function [k0, mu0, phi0] = cpdem_Forward(k1,mu1,sig1,k2,mu2,sig2,sig0,epar,opts)
 %                   may be a scalar, an array matching sig0 (per-sample
 %                   EPAR), or a function handle of porosity, epar(phi), e.g.
 %                   the power law of Cilli & Chapman (2020).
-%   opts          : optional cpdem_Options struct (solver tolerances etc.).
+%   opts          : optional cpdem_Options struct (solver tolerances, and
+%                   Form = 'mbar' or 'R' to evaluate equations 18 & 19 or
+%                   20 & 21 of the paper; they are identical).
 %
 % Each of k1, mu1, sig1, k2, mu2, sig2 may also be an array matching sig0
 % (sample-dependent parameters); this replaces v1.0's "paramFlag".
@@ -101,7 +105,7 @@ if shared
     ok = ~bad;
     if any(ok)
         u = log(sig0(ok)/sig1);
-        Y = cpdem_Integrate(@(u, y) cpdem_Deriv(u, y, k1, k2, mu2, sig1, sig2, epar), ...
+        Y = cpdem_Integrate(@(u, y) cpdem_Deriv(u, y, k1, k2, mu2, sig1, sig2, epar, opts.Form), ...
                             u, [1; mu1/k1; 0], opts);
         k0(ok)   = Y(:, 1)*k1;
         mu0(ok)  = Y(:, 2)*k1;
@@ -116,7 +120,7 @@ else
         end
         u = log(sig0(ii)/sig1v(ii));
         Y = cpdem_Integrate(@(u, y) cpdem_Deriv(u, y, k1v(ii), k2v(ii), mu2v(ii), ...
-                                               sig1v(ii), sig2v(ii), e), ...
+                                               sig1v(ii), sig2v(ii), e, opts.Form), ...
                             u, [1; mu1v(ii)/k1v(ii); 0], opts);
         k0(ii)   = Y(1)*k1v(ii);
         mu0(ii)  = Y(2)*k1v(ii);

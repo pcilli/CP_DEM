@@ -119,18 +119,27 @@ K(\sigma_1)=K_1,\ \mu(\sigma_1)=\mu_1 .
 $$
 
 Given the end-member properties and α, the moduli are a function of
-conductivity alone. Porosity has become a dummy variable, but it can be
-carried along,
+conductivity alone. The toolbox evaluates this system exactly; the option
+`Form` chooses between the two written forms of the paper, m̄ (equations
+18 and 19, default) and R (equations 20 and 21), which differ only by the
+identity $\bar m = 3\sigma R$ and are tested to agree to 1e-12.
+
+Porosity has become a dummy variable. As a *diagnostic that is not part of
+the paper's model*, the toolbox can carry it along,
 
 $$
 \frac{d\phi}{d\sigma} = \frac{1-\phi}{(\sigma_2-\sigma)\,\bar m},\qquad \phi(\sigma_1)=0,
 $$
 
-which the toolbox does for three reasons: it reports the porosity the model
-implies for each measurement (`cpdem_ImpliedPorosity`, third output of
-`cpdem_Forward`), it gives a consistent bulk density
-$\rho=(1-\phi)\rho_1+\phi\rho_2$ for velocities (`cpdem_ModelVpVs`), and it
-allows α to be a function of porosity along the path (`cpdem_EvalEPAR`).
+for three uses: reporting the porosity the DEM path passes through to
+reach each measurement (`cpdem_ImpliedPorosity`, optional third output of
+`cpdem_Forward`), an optional bulk density
+$\rho=(1-\phi)\rho_1+\phi\rho_2$ for velocities (`cpdem_ModelVpVs`,
+`'implied'`; the paper itself uses the Gardner relation, which is the
+default), and letting α be a function of the inclusion fraction along the
+path (`cpdem_EvalEPAR`), the construction of Cilli and Chapman (2020).
+Because EPAR is an effective parameter, the DEM porosity of a real rock
+need not equal its true porosity; the diagnostic is a model quantity.
 
 The same construction links any two DEM-modelled properties. For two
 conductivity-type properties, e.g. thermal conductivity λ and electrical
@@ -232,12 +241,24 @@ coefficients are listed in `cpdem_Shape.m`); its truncation error is below
 
 ### EPAR as a function of porosity
 
-With α = α(φ), the DEM equations are integrated with α evaluated at the
-current porosity state. Every path starts at φ = 0, so the law must be
-positive there: a pure power law $a\phi^b$ (Cilli and Chapman 2020) is
-zero at φ = 0 and must be given a floor, `@(phi) max(a*phi.^b, 1e-3)`.
-Solver trial states can lie marginally outside [0, 1); the law is evaluated
-at the nearest physical porosity.
+Cilli and Chapman (2020) found that the DEM aspect ratio which fits
+laboratory data follows a power law in porosity, for the equivalent *pore*
+aspect ratio of the elastic model (pores as inclusions in the mineral) and
+the equivalent *grain* aspect ratio of the electrical model of Sen et al.
+(1981) (grains as inclusions in the fluid), and showed that using the law
+inside the DEM reproduces published empirical resistivity–porosity and
+velocity–porosity relations. The toolbox implements the construction, not
+a particular law: EPAR may be given as a function handle of the inclusion
+volume fraction carried along the path, evaluated at every step of every
+forward, inverse and single-property integration. In the pore-inclusion
+form that fraction is the porosity (`@(phi) ...`); in the grain-inclusion
+form, obtained by calling `cpdem_ElecDEM(1 - phi, sigFluid, sigGrain, ...)`,
+it is the grain fraction, so a law in porosity is written `@(f) law(1 - f)`.
+Every path starts at zero inclusion fraction, so the law must be positive
+there: a pure power law $a\phi^b$ is zero at φ = 0 and must be given a
+floor, `@(phi) max(a*phi.^b, 1e-3)`, which only affects the first
+infinitesimal part of the path. Solver trial states can lie marginally
+outside [0, 1); the law is evaluated at the nearest physical fraction.
 
 ## 4. Assumptions and limitations
 
