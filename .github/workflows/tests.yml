@@ -1,0 +1,38 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  octave:
+    name: Octave test suite and examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GNU Octave
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends octave
+
+      - name: Run the test suite
+        run: octave --no-gui -q --eval "cd Tests; cpdem_RunTests"
+
+      - name: Run the example scripts headless
+        env:
+          CPDEM_NOPLOT: '1'
+        run: octave --no-gui -q --eval "cd ExampleScripts; cpdem_RunExamples"
+
+  python:
+    name: Python reference port
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install numpy scipy pytest
+      - name: Run tests
+        run: pytest -q python

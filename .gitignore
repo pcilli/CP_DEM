@@ -1,0 +1,17 @@
+# MATLAB / Octave
+*.asv
+*.m~
+*.autosave
+*.mex*
+octave-workspace
+slprj/
+# Figures written by the example scripts
+ExampleScripts/output/
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+# OS / editors
+.DS_Store
+Thumbs.db
+*.swp
