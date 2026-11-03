@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: "If you use this toolbox, please cite the paper describing the model and, optionally, the software."
+title: "CP_DEM: Cross-Property DEM Toolbox"
+version: 2.0.0
+date-released: 2026-11-03
+license: GPL-3.0
+repository-code: "https://github.com/pcilli/CP_DEM"
+abstract: >-
+  MATLAB/GNU Octave toolbox (with a Python port) for the cross-property
+  differential effective medium model of Cilli and Chapman (2021), which
+  links the elastic moduli and electrical conductivity of porous and
+  composite materials through the equivalent pore aspect ratio without
+  reference to porosity.
+authors:
+  - family-names: Cilli
+    given-names: Phillip A.
+keywords:
+  - rock physics
+  - effective medium theory
+  - differential effective medium
+  - electrical conductivity
+  - elastic moduli
+  - cross-property relations
+preferred-citation:
+  type: article
+  title: "Linking elastic and electrical properties of rocks using cross-property DEM"
+  authors:
+    - family-names: Cilli
+      given-names: Phillip A.
+    - family-names: Chapman
+      given-names: Mark
+  journal: "Geophysical Journal International"
+  volume: 225
+  issue: 3
+  start: 1812
+  end: 1823
+  year: 2021
+  doi: 10.1093/gji/ggab046
