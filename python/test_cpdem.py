@@ -22,6 +22,11 @@ def test_shape_sphere_limits_and_identity():
     for e in (-0.1, 0.1):
         s1 = cpdem.shape(1 + e*(1 - 1e-9)); s2 = cpdem.shape(1 + e*(1 + 1e-9))
         assert np.allclose(s1, s2, rtol=1e-9)
+    for a in (1e-11, 1e-9, 1e9, 1e11, 1e13):
+        t, f, L = cpdem.shape(a)
+        assert all(map(math.isfinite, (t, f, L))) and 0 <= L <= 1
+    assert abs(cpdem.shape(1e9)[2] - (math.log(2e9) - 1)/1e18) < 1e-6*(math.log(2e9) - 1)/1e18
+    assert cpdem.shape(0.0) == (0.0, 0.0, 1.0) and cpdem.shape(math.inf) == (1.0, -1.0, 0.0)
 
 
 def test_PQ_mbar_closed_forms():
@@ -132,6 +137,33 @@ def test_anisotropic_and_aligned():
         o = cpdem.aligned_forward_conduct(7.7, P["sig1"], 0.6, P["sig2"], spar, epar, "par")
         assert np.allclose(o["sigPerp"], sperp, rtol=1e-6) and np.allclose(o["pPar"], lpar, rtol=1e-6)
         assert np.allclose(o["pPerp"], lperp, rtol=1e-6) and np.allclose(o["phi"], phi, atol=1e-8)
+
+
+def test_thermal_electrical_paper():
+    """Equations 5-9, mirror symmetry, HS bounds and the Section 3 calibration of
+    Cilli & Chapman (arXiv:2102.12434) with the paper's Cu-graphite parameters."""
+    c = cpdem.published_cu_graphite()
+    k1, s1, k2, s2 = c["kappa1"], c["sig1"], c["kappa2"], c["sig2"]
+    sig = s1*np.array([0.9, 0.5, 0.2, 0.05]); kap = k1*np.array([0.9, 0.6, 0.3, 0.1])
+    rhs = lambda a: cpdem.cond_increment(kap, k2, a)/cpdem.cond_increment(sig, s2, a)
+    eq7 = kap*(k2 - kap)*(2*sig + s2)/(sig*(s2 - sig)*(2*kap + k2))
+    eq8 = s2*(k2 - kap)*(2*k2 + kap)/(k2*(s2 - sig)*(2*s2 + sig))
+    eq9 = (s2 + sig)*(k2 - kap)*(k2 + 5*kap)/((k2 + kap)*(s2 - sig)*(s2 + 5*sig))
+    assert np.allclose(rhs(1.0), eq7, rtol=1e-12) and np.allclose(rhs(0.0), eq8, rtol=1e-12)
+    assert np.allclose(rhs(math.inf), eq9, rtol=1e-12)
+    sig0 = s1*np.array([0.95, 0.7, 0.5, 0.3, 0.1, 0.03])
+    k_up, k_low, phi_min, phi_max, k_on1, k_on2 = cpdem.cond_cond_hs(sig0, s1, s2, k1, k2)
+    for a in c["alphaCurves"]:
+        kap0, _ = cpdem.forward_conduct(k1, s1, k2, s2, sig0, a)
+        back, _ = cpdem.forward_conduct(s1, k1, s2, k2, kap0, a)
+        assert np.allclose(back, sig0, rtol=1e-7)
+        assert np.all(kap0 <= k_up*(1 + 1e-9)) and np.all(kap0 >= k_low*(1 - 1e-7))
+    kap_disk, _ = cpdem.forward_conduct(k1, s1, k2, s2, sig0, 0.0)
+    assert np.allclose(kap_disk, k_on2, rtol=1e-8)
+    phi = np.array([0.1, 0.3, 0.4])
+    cal = cpdem.calibrate_conduct(cpdem.elec_dem(phi, k1, k2, c["alpha"]), cpdem.elec_dem(phi, s1, s2, c["alpha"]),
+                                  k1, s1, (c["kappaFlakePlane"], c["kappaFlakeAxis"]), (c["sigFlakeAxis"], c["sigFlakePlane"]))
+    assert abs(cal["epar"] - c["alpha"]) < 2e-2*c["alpha"] and abs(cal["p2"] - k2) < 2e-2*k2 and abs(cal["sig2"] - s2) < 2e-2*s2
 
 
 def test_against_octave_reference():

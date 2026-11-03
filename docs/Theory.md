@@ -141,15 +141,71 @@ path (`cpdem_EvalEPAR`), the construction of Cilli and Chapman (2020).
 Because EPAR is an effective parameter, the DEM porosity of a real rock
 need not equal its true porosity; the diagnostic is a model quantity.
 
-The same construction links any two DEM-modelled properties. For two
-conductivity-type properties, e.g. thermal conductivity λ and electrical
-conductivity σ (Cilli and Chapman 2021, arXiv:2102.12434),
+### Thermal–electrical cross-property DEM (arXiv:2102.12434)
+
+The same construction links any two DEM-modelled properties. Cilli and
+Chapman (2021, arXiv:2102.12434) write the electrical DEM (their
+equations 1–2) and the thermal DEM (equations 3–4, with $\bar t$ the same
+function as $\bar m$ applied to κ), and obtain by the chain rule their
+equation 5 and its reciprocal, equation 6:
 
 $$
-\frac{d\lambda}{d\sigma} = \frac{(\lambda_2-\lambda)\,\bar m(\lambda,\lambda_2,\alpha)}{(\sigma_2-\sigma)\,\bar m(\sigma,\sigma_2,\alpha)},
+\frac{d\kappa}{d\sigma} = \frac{(\kappa_2-\kappa)\,\bar t}{(\sigma_2-\sigma)\,\bar m},\qquad
+\frac{d\sigma}{d\kappa} = \frac{(\sigma_2-\sigma)\,\bar m}{(\kappa_2-\kappa)\,\bar t},
 $$
 
-implemented in `cpdem_ForwardConduct`.
+with $\kappa(\sigma_1)=\kappa_1$ and $\sigma(\kappa_1)=\sigma_1$
+(`cpdem_ForwardConduct`, the reverse by swapping the two properties). Their
+exact special cases, equations 7–9, follow from $L = 1/3, 1, 0$:
+
+$$
+\left.\frac{d\kappa}{d\sigma}\right|_S = \frac{\kappa(\kappa_2-\kappa)(2\sigma+\sigma_2)}{\sigma(\sigma_2-\sigma)(2\kappa+\kappa_2)},\quad
+\left.\frac{d\kappa}{d\sigma}\right|_D = \frac{\sigma_2(\kappa_2-\kappa)(2\kappa_2+\kappa)}{\kappa_2(\sigma_2-\sigma)(2\sigma_2+\sigma)},\quad
+\left.\frac{d\kappa}{d\sigma}\right|_N = \frac{(\sigma_2+\sigma)(\kappa_2-\kappa)(\kappa_2+5\kappa)}{(\kappa_2+\kappa)(\sigma_2-\sigma)(\sigma_2+5\sigma)},
+$$
+
+and the toolbox accepts EPAR = 0 and EPAR = ∞ exactly in the conductivity
+functions (tested against these forms).
+
+The paper's method (Section 3) for the copper–graphite composites of
+Mazloum et al. (2016): the graphite flakes are transversely isotropic but
+randomly oriented, so the inclusion phase is given effective *isotropic*
+conductivities bounded by the flake's values along its unique axis and in
+its plane; these two effective values and the aspect ratio are solved
+simultaneously by minimising the l2 misfit of thermal conductivity
+modelled from electrical conductivity, with the aspect ratio searched over
+[0, ∞] and only samples with inclusion fraction ≤ 0.4 used (inclusion
+models assume a dilute dispersion). `cpdem_CalibrateConduct` implements
+this. With three informative samples and three parameters the solution is
+an exact root, so the misfit is V-shaped rather than quadratic around it
+and the parameters trade off along a thin curved valley in which direct
+three-parameter searches (Nelder–Mead, Gauss–Newton) stall; the toolbox
+therefore profiles the misfit over a log grid of aspect ratios, solving
+the well-conditioned two-parameter sub-problem for the effective inclusion
+values at each (Gauss–Newton with sine-transformed bounds), and then
+minimises the profile over log α with a bounded one-dimensional search,
+including the exact disk and needle limits. On synthetic data generated
+with the paper's solution this recovers α, κ₂ and σ₂ to better than 1 %.
+The paper's solution,
+$\kappa_2 = 24.1$, $\sigma_2 = 0.61\times10^{-8}$ (units as printed),
+$\alpha = 0.097$ against a measured 0.1, is stored in
+`cpdem_PublishedCuGraphite`; the measurements themselves are not
+redistributed.
+
+Thermal–electrical Hashin–Shtrikman bounds follow Carcione's stratagem
+(`cpdem_CondCondHS`): each conductivity bound is rearranged for the volume
+fraction and substituted into the same-type bound of the other property.
+Pairing type with type is the physically right choice because the
+coated-sphere assemblage built on one phase attains that phase's bound
+for every Laplace property at once. The disk DEM reproduces the bound
+built on the inclusion phase for each property (Norris 1985), so the
+EPAR = 0 trend lies exactly on that cross-property curve, as the paper
+notes. One subtlety that the toolbox handles: when the inclusion phase is
+lower in both properties (copper–graphite), the curve built on it, the
+single-property *lower* bound, is the *upper* envelope of κ against σ, since
+such a composite needs less inclusion to reach a given σ; `pUp` and
+`pLow` are therefore the larger and smaller of the two paired curves, and
+both curves are also returned.
 
 ### Anisotropic inclusions and aligned inclusions (extension)
 

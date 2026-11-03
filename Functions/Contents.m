@@ -14,6 +14,10 @@
 %   cpdem_CalibrateEPAR   - Calibrate alpha_K and alpha_mu to joint data sets
 %   cpdem_ForwardConduct  - Cross-property DEM between two conductivity-like
 %                           properties (e.g. thermal from electrical)
+%   cpdem_CalibrateConduct - Aspect ratio and effective inclusion conductivities
+%                           from thermal-electrical data (arXiv:2102.12434, Sec. 3)
+%   cpdem_CondCondHS      - Hashin-Shtrikman bounds between two conductivities
+%   cpdem_PublishedCuGraphite - Parameters of the copper-graphite example
 %   cpdem_AlignedCondDEM  - Transversely isotropic DEM for aligned spheroids
 %   cpdem_AlignedForwardConduct - Its cross-property form
 %

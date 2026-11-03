@@ -35,6 +35,10 @@ function [p, q] = cpdem_PQ(k0, mu0, k2, mu2, epar)
 %
 % Part of the Cross-Property DEM Toolbox (CP_DEM) v2.0.
 
+if ~isscalar(epar) || epar <= 0 || isinf(epar)
+    error('CPDEM:badEPAR', ...
+        'The elastic P and Q need 0 < EPAR < Inf (the disk and needle limits are singular).');
+end
 [T, f] = cpdem_Shape(epar);
 
 nu0 = (3*k0 - 2*mu0)./(2*(3*k0 + mu0));   % host Poisson's ratio

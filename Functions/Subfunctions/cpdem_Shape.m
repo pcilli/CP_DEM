@@ -15,7 +15,10 @@ function [theta, f, L] = cpdem_Shape(epar)
 % Definition of EPAR (Cilli & Chapman 2021): the ratio of the unique
 % ellipsoidal axis length to the degenerate axis length, so EPAR < 1 is an
 % oblate spheroid ("disk"/"penny"), EPAR == 1 is a sphere and EPAR > 1 is a
-% prolate spheroid ("needle"). Berryman (1980) and Osborn (1945) use other
+% prolate spheroid ("needle"). The exact limits EPAR = 0 (disk, L = 1) and
+% EPAR = Inf (needle, L = 0) are accepted for the conductivity functions,
+% and are used for EPAR < 1e-12 and EPAR > 1e12 where they are exact to
+% double precision. Berryman (1980) and Osborn (1945) use other
 % conventions (see the Theory notes); the conversions are made here.
 %
 % The closed-form expressions suffer catastrophic cancellation near the
@@ -45,9 +48,21 @@ function [theta, f, L] = cpdem_Shape(epar)
 %
 % Part of the Cross-Property DEM Toolbox (CP_DEM) v2.0.
 
-if ~isscalar(epar) || ~isreal(epar) || ~isfinite(epar) || epar <= 0
+if ~isscalar(epar) || ~isreal(epar) || isnan(epar) || epar < 0
     error('CPDEM:badEPAR', ...
-        'EPAR must be a positive, finite, real scalar (got %s).', mat2str(epar));
+        'EPAR must be a non-negative real scalar (got %s).', mat2str(epar));
+end
+
+% Exact limits used by Cilli and Chapman (arXiv:2102.12434, equations 8
+% and 9): disks (EPAR = 0, L = 1) and needles (EPAR = Inf, L = 0). These
+% are only meaningful for the conductivity functions; the elastic P and Q
+% are singular there (cpdem_PQ rejects them).
+if epar < 1e-12
+    theta = 0; f = 0; L = 1;        % disk limit (deviation below 2e-12)
+    return
+elseif epar > 1e12
+    theta = 1; f = -1; L = 0;       % needle limit (deviation below 1e-22)
+    return
 end
 
 e = epar - 1;
@@ -94,9 +109,11 @@ else
     f     = a^2/(a^2 - c^2)*(2 - 3*theta);
 
     % Osborn (1945) prolate spheroid with M = (long axis)/(short axis) > 1.
+    % Osborn's log((M + s)/(M - s)) is written 2 log(M + s), an identity
+    % since (M - s)(M + s) = 1, which avoids the loss of M - s for large M.
     M = epar;
     s = sqrt(M^2 - 1);
-    L = 1/(M^2 - 1)*(M/(2*s)*log((M + s)/(M - s)) - 1);
+    L = 1/(M^2 - 1)*(M/s*log(M + s) - 1);
 end
 
 end

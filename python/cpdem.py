@@ -64,8 +64,12 @@ def shape(epar: float):
     A 13th-order series is used for |EPAR - 1| < 0.1.
     """
     epar = float(epar)
-    if not (math.isfinite(epar) and epar > 0):
-        raise ValueError(f"EPAR must be a positive finite number, got {epar}")
+    if math.isnan(epar) or epar < 0:
+        raise ValueError(f"EPAR must be a non-negative number, got {epar}")
+    if epar < 1e-12:         # disks (Cilli & Chapman arXiv:2102.12434, eq. 8)
+        return 0.0, 0.0, 1.0
+    if epar > 1e12:          # needles (eq. 9)
+        return 1.0, -1.0, 0.0
     e = epar - 1.0
     if abs(e) < 0.1:
         theta = _CT[-1]
@@ -86,12 +90,14 @@ def shape(epar: float):
         f = a*a/(a*a - c*c)*(2 - 3*theta)
         M = epar
         s = math.sqrt(M*M - 1)
-        L = 1/(M*M - 1)*(M/(2*s)*math.log((M + s)/(M - s)) - 1)
+        L = 1/(M*M - 1)*(M/s*math.log(M + s) - 1)   # log((M+s)/(M-s)) = 2 log(M+s)
     return theta, f, L
 
 
 def PQ(k0, mu0, k2, mu2, epar):
     """Berryman's (1980) P and Q for a spheroidal inclusion (k2, mu2) in a host (k0, mu0)."""
+    if not (0 < float(epar) < math.inf):
+        raise ValueError("elastic P and Q need 0 < EPAR < inf")
     T, f, _ = shape(epar)
     k0 = np.asarray(k0, float); mu0 = np.asarray(mu0, float)
     nu0 = (3*k0 - 2*mu0)/(2*(3*k0 + mu0))
@@ -159,7 +165,7 @@ def _pair(v):
 def _eval_epar(epar: EPAR, phi: float) -> float:
     if callable(epar):
         a = float(epar(min(max(phi, 0.0), 1.0)))
-        if not (math.isfinite(a) and a > 0):
+        if math.isnan(a) or a < 0:
             raise ValueError("EPAR(phi) must return a positive finite value; "
                              "a power law needs a floor, e.g. max(a*phi**b, 1e-3)")
         return a
@@ -400,6 +406,133 @@ def aligned_forward_conduct(p1, sig1, p2, sig2, sig0, epar: EPAR, which="par", r
         out["pPar"][ok] = p1par*np.exp(Y[:, 1]); out["pPerp"][ok] = p1perp*np.exp(Y[:, 2])
         out["phi"][ok] = Y[:, 3]
     return {k: v.reshape(sig0.shape) for k, v in out.items()}
+
+
+def published_cu_graphite():
+    """Parameters of Cilli & Chapman (arXiv:2102.12434) for the Cu-graphite composites of
+    Mazloum et al. (2016), in the units quoted by the paper."""
+    return dict(kappa1=348.6, sig1=58.8e-8, kappaFlakeAxis=274.0, kappaFlakePlane=10.0,
+                sigFlakeAxis=0.59e-8, sigFlakePlane=2.26e-8, alphaMeasured=0.1,
+                phiSamples=[0, 0.1, 0.3, 0.4, 0.5], phiCalibration=[0, 0.1, 0.3, 0.4],
+                kappa2=24.1, sig2=0.61e-8, alpha=0.097, alphaCurves=[0, 1e-2, 1e-1, 1, math.inf])
+
+
+def _hs_on1(phi, a1, a2):
+    return a1 + phi/(1/(a2 - a1) + (1 - phi)/(3*a1))
+
+
+def _hs_on2(phi, a1, a2):
+    return a2 + (1 - phi)/(1/(a1 - a2) + phi/(3*a2))
+
+
+def cond_cond_hs(sig, sig1, sig2, p1, p2):
+    """Cross-property Hashin-Shtrikman bounds between two Laplace properties (Carcione
+    stratagem as in Cilli & Chapman arXiv:2102.12434): returns (p_up, p_low, phi_min, phi_max,
+    p_on1, p_on2), the last two being the curves paired type-with-type on each phase."""
+    sig = np.asarray(sig, float)
+    phi1 = np.clip((sig - sig1)*(2*sig1 + sig2)/((sig2 - sig1)*(sig + 2*sig1)), 0, 1)
+    phi2 = np.clip(1 - (sig - sig2)*(2*sig2 + sig1)/((sig1 - sig2)*(sig + 2*sig2)), 0, 1)
+    p_on1, p_on2 = _hs_on1(phi1, p1, p2), _hs_on2(phi2, p1, p2)
+    return (np.maximum(p_on1, p_on2), np.minimum(p_on1, p_on2),
+            np.minimum(phi1, phi2), np.maximum(phi1, phi2), p_on1, p_on2)
+
+
+def calibrate_conduct(p_meas, sig_meas, p1, sig1, p2_bounds, sig2_bounds, norm=2,
+                      alpha_starts=(), xtol=1e-5, limits=True, alpha_bounds=(1e-4, 1e4),
+                      grid_size=(9, 3, 3), refine=2):
+    """Three-parameter calibration of Section 3 of Cilli & Chapman (arXiv:2102.12434):
+    aspect ratio (searched over [0, inf]: the interior in log space within alpha_bounds,
+    plus the exact disk and needle limits) and effective inclusion values of p and sig
+    within the given bounds, minimising the misfit of p modelled from sig. The misfit is
+    multimodal with few samples, so it is first profiled over a log grid of aspect ratios
+    (grid_size[0] values; the 2-D search over p2 and sig2 at each starts from the best of a
+    grid_size[1] x grid_size[2] grid), and the profile is then minimised over log aspect
+    ratio with a bounded 1-D search in the bracket around the best grid point(s) (refine):
+    with few samples the solution is a sharp V-shaped minimum of the profile where direct
+    three-parameter searches stall. Returns a dict with the profile."""
+    la, lb = math.log(alpha_bounds[0]), math.log(alpha_bounds[1])
+    def alpha_of(x):
+        return math.exp(la + (lb - la)*(1 + math.sin(x))/2)
+    def x_of_alpha(a):
+        return math.asin(min(max(2*(math.log(a) - la)/(lb - la) - 1, -1.0), 1.0))
+    from scipy.optimize import minimize
+    p_meas = np.asarray(p_meas, float).ravel(); sig_meas = np.asarray(sig_meas, float).ravel()
+    pb = sorted(np.atleast_1d(np.asarray(p2_bounds, float)).tolist()*(2 if np.ndim(p2_bounds) == 0 else 1))
+    sb = sorted(np.atleast_1d(np.asarray(sig2_bounds, float)).tolist()*(2 if np.ndim(sig2_bounds) == 0 else 1))
+
+    def unpack(x):
+        return (pb[0] + (pb[1] - pb[0])*(1 + math.sin(x[0]))/2,
+                sb[0] + (sb[1] - sb[0])*(1 + math.sin(x[1]))/2)
+
+    def resid(x, alpha=None):
+        a = alpha_of(x[0]) if alpha is None else alpha
+        p2, s2 = unpack(x[1:] if alpha is None else x)
+        try:
+            model, _ = forward_conduct(p1, sig1, p2, s2, sig_meas, a)
+        except Exception:
+            return np.full(p_meas.shape, np.nan)
+        return p_meas - model
+
+    def cost(x, alpha=None):
+        r = resid(x, alpha)
+        if np.any(np.isnan(r)):
+            return 1e300
+        return float(np.abs(r).sum()) if norm == 1 else float(math.sqrt((r*r).sum()))
+
+    def solve2d(x0, alpha):
+        """Inclusion values at fixed aspect ratio: least squares for norm 2, else Nelder-Mead."""
+        from scipy.optimize import least_squares
+        if norm == 2:
+            res = least_squares(lambda x: np.nan_to_num(resid(x, alpha), nan=1e150), x0,
+                                xtol=1e-12, ftol=1e-14, gtol=1e-12, diff_step=1e-5)
+            return res.x, cost(res.x, alpha)
+        res = minimize(lambda x: cost(x, alpha), x0, method="Nelder-Mead", options=fine)
+        return res.x, res.fun
+
+    alphas = sorted(list(np.logspace(math.log10(alpha_bounds[0]), math.log10(alpha_bounds[1]), grid_size[0]))
+                    + [float(a) for a in alpha_starts])
+    if limits:
+        alphas = [0.0] + alphas + [math.inf]
+    xp = np.arcsin(np.linspace(-0.95, 0.95, grid_size[1])) if pb[0] != pb[1] else np.array([0.0])
+    xs = np.arcsin(np.linspace(-0.95, 0.95, grid_size[2])) if sb[0] != sb[1] else np.array([0.0])
+    coarse = {"xatol": 1e-3, "fatol": 1e-6, "maxfev": 400}
+    fine = {"xatol": xtol, "fatol": xtol*1e-3, "maxfev": 4000}
+    from scipy.optimize import minimize_scalar
+    profile, x2 = [], []
+    for a in alphas:
+        g2 = min(((cost([b, c_], a), [b, c_]) for b in xp for c_ in xs), key=lambda t: t[0])
+        x, c_ = solve2d(np.asarray(g2[1], float), a)
+        profile.append(c_); x2.append(list(x))
+    interior = [i for i, a in enumerate(alphas) if 0 < a < math.inf]
+    interior.sort(key=lambda i: profile[i])
+    best = (math.inf, None, None)
+    starts = []
+    for i in interior[:refine]:
+        lo = alphas[max(i - 1, 0)] if alphas[max(i - 1, 0)] > 0 else alpha_bounds[0]
+        hi = alphas[min(i + 1, len(alphas) - 1)]
+        hi = hi if math.isfinite(hi) else alpha_bounds[1]
+        warm = np.asarray(x2[i], float)
+        prof = lambda la: solve2d(warm, math.exp(la))[1]
+        res = minimize_scalar(prof, bounds=(math.log(lo), math.log(hi)), method="bounded",
+                              options={"xatol": xtol})
+        x, c_ = solve2d(warm, math.exp(res.x))
+        starts.append(c_)
+        if c_ < best[0]:
+            best = (c_, math.exp(res.x), unpack(x))
+    for i, a in enumerate(alphas):
+        if 0 < a < math.inf:
+            continue
+        x, c_ = solve2d(np.asarray(x2[i], float), a)
+        starts.append(c_)
+        if c_ < best[0]:
+            best = (c_, a, unpack(x))
+    misfit, epar, (p2, s2) = best
+    model, _ = forward_conduct(p1, sig1, p2, s2, sig_meas, epar)
+    r = p_meas - model
+    sst = ((p_meas - p_meas.mean())**2).sum()
+    return {"epar": epar, "p2": p2, "sig2": s2, "misfit": misfit, "pModel": model,
+            "rms": math.sqrt((r*r).mean()), "r2": 1 - (r*r).sum()/sst if sst > 0 else np.nan,
+            "starts": starts, "profile": {"alpha": alphas, "misfit": profile}}
 
 
 def elec_elas_hs(sig, sig_sol, sig_fl, k_sol, k_fl, mu_sol):

@@ -34,10 +34,12 @@ same model and a backward-compatible interface.
   Chapman (2020).
 - Link **thermal and electrical conductivity** with the same construction
   (`cpdem_ForwardConduct`; Cilli and Chapman, 2021, arXiv:2102.12434),
-  including inclusion materials that are themselves anisotropic (graphite
-  flakes), and an **aligned-inclusion, transversely isotropic** version of
-  the conductivity DEM and its cross-property form
-  (`cpdem_AlignedCondDEM`, `cpdem_AlignedForwardConduct`).
+  with that paper's three-parameter calibration (`cpdem_CalibrateConduct`),
+  its Hashin–Shtrikman bounds (`cpdem_CondCondHS`) and its copper–graphite
+  parameters (`cpdem_PublishedCuGraphite`), plus extensions for inclusion
+  materials that are themselves anisotropic and for **aligned inclusions**
+  (transversely isotropic DEM and its cross-property form,
+  `cpdem_AlignedCondDEM`, `cpdem_AlignedForwardConduct`).
 
 Everything runs on MATLAB (R2016b or later, no toolboxes needed) and on
 GNU Octave (tested on 8.4), is covered by a test suite that runs in
@@ -171,7 +173,9 @@ and every default reproduces the paper's choice.
 | Electrical–elastic Hashin–Shtrikman bounds (`cpdem_ElecElasHS`) | Carcione et al. (2007), as used in the paper |
 | Single-property DEMs (`cpdem_ElecDEM`, `cpdem_ElasDEM`) | The two schemes the paper combines; `cpdem_ElecDEM` also evaluates the grain-inclusion form of Cilli and Chapman (2020) and Sen et al. (1981), see its help |
 | Porosity-dependent aspect ratio (`epar = @(phi) ...`) | The power-law construction of Cilli and Chapman (2020), with the law supplied by you |
-| Thermal from electrical conductivity (`cpdem_ForwardConduct`) | Cilli and Chapman (2021), arXiv:2102.12434 |
+| Thermal from electrical conductivity and the reverse (`cpdem_ForwardConduct`), exact disk/sphere/needle cases | Cilli and Chapman (2021), arXiv:2102.12434, equations 1–6 and 7–9 |
+| Three-parameter calibration: aspect ratio over [0, ∞] and effective inclusion conductivities within the flake's principal values, l2 misfit (`cpdem_CalibrateConduct`) | arXiv:2102.12434, Section 3 |
+| Thermal–electrical Hashin–Shtrikman bounds (`cpdem_CondCondHS`), published Cu–graphite parameters (`cpdem_PublishedCuGraphite`) | arXiv:2102.12434, Sections 3–4; Carcione et al. (2007) |
 | Anisotropic inclusion conductivities, `sig2 = [axis plane]` (`cpdem_CondIncrement`) | *extension*: orientation average of the per-axis concentration factors of an anisotropic ellipsoid, for the graphite-flake case the preprint discusses with bounding isotropic values |
 | Aligned inclusions, transversely isotropic DEM and cross-property (`cpdem_AlignedCondDEM`, `cpdem_AlignedForwardConduct`) | *extension*: classical affine-stretch treatment of aligned spheroids in an anisotropic matrix, checked against the exact laminate and fibre limits; to be reconciled with the author's forthcoming anisotropic cross-property DEM |
 | Implied porosity output and `cpdem_ImpliedPorosity` | *extension*: a diagnostic; porosity is a dummy variable of the model and the DEM porosity need not equal the true porosity |
@@ -191,7 +195,10 @@ rocks in Cilli and Chapman (2021).
 | `cpdem_Inverse` | Conductivity from a bulk or shear modulus (direct integration) |
 | `cpdem_ModelVpVs` | Vp, Vs and Vp/Vs from conductivity, with three density options |
 | `cpdem_CalibrateEPAR` | Calibrate $\alpha_K$ and $\alpha_\mu$ (whole data set or per sample) with fit statistics |
-| `cpdem_ForwardConduct` | Cross-property DEM between two conductivity-like properties (thermal from electrical); inclusions may be anisotropic |
+| `cpdem_ForwardConduct` | Cross-property DEM between two conductivity-like properties (thermal from electrical and the reverse); inclusions may be anisotropic |
+| `cpdem_CalibrateConduct` | Aspect ratio and effective inclusion conductivities from thermal–electrical data (Section 3 of the preprint) |
+| `cpdem_CondCondHS` | Hashin–Shtrikman bounds between two conductivity-like properties |
+| `cpdem_PublishedCuGraphite` | Constituent values and solved parameters of the preprint's copper–graphite example |
 | `cpdem_AlignedCondDEM`, `cpdem_AlignedForwardConduct` | Transversely isotropic DEM for aligned spheroids and its cross-property form |
 | `cpdem_ElecDEM`, `cpdem_ElasDEM` | Single-property electrical and elastic DEMs versus porosity |
 | `cpdem_ImpliedPorosity` | Porosity the electrical DEM implies for a conductivity |
@@ -240,7 +247,7 @@ laboratory data that are not redistributed here):
 | `cpdem_SolveEPAR_Example` | Calibration of $\alpha_K$ and $\alpha_\mu$, options, per-sample EPARs, the shape of the objective |
 | `cpdem_SolveConduct_Example` | Direct inversion of moduli for conductivity, unreachable measurements |
 | `cpdem_PorosityAndArchie_Example` | The single-property DEMs, implied porosity, $\bar m$ as a generalised cementation exponent, EPAR(φ) |
-| `cpdem_ThermalConduct_Example` | Thermal conductivity from electrical conductivity |
+| `cpdem_ThermalConduct_Example` | Reproduces the trends and bounds of Figure 1 of the thermal–electrical preprint and its three-parameter calibration (on synthetic data at the paper's volume fractions) |
 | `cpdem_AnisotropicConduct_Example` | Graphite-like anisotropic flakes, randomly oriented and aligned; the transversely isotropic cross-property relation |
 
 `cpdem_RunExamples` runs them all (`cpdem_RunExamples(true)` also saves the
@@ -307,6 +314,8 @@ If you use the toolbox, please cite the paper that describes the model
 - Cilli, P. A., and Chapman, M. (2020). The power-law relation between inclusion aspect ratio and porosity: Implications for electrical and elastic modeling. *J. Geophys. Res. Solid Earth*, 125, e2019JB019187. doi:10.1029/2019JB019187
 - Cilli, P. A., and Chapman, M. (2021). Linking elastic and electrical properties of rocks using cross-property DEM. *Geophys. J. Int.*, 225(3), 1812–1823. doi:10.1093/gji/ggab046
 - Cilli, P. A., and Chapman, M. (2021). Linking electrical and thermal conductivity through cross-property inclusion modelling. arXiv:2102.12434
+- Mazloum, A., Kováčik, J., Emmer, Š., and Sevostianov, I. (2016). Copper–graphite composites: thermal expansion, thermal and electrical conductivities, and cross-property connections. *J. Mater. Sci.*, 51(17), 7977–7990.
+- Norris, A. N. (1985). A differential scheme for the effective moduli of composites. *Mech. Mater.*, 4(1), 1–16.
 - Cilli, P. A., and Chapman, M. (2022). On the pressure (in)dependence of cross-property relations. EGU General Assembly 2022, EGU22-9251.
 - Eshelby, J. D. (1957). The determination of the elastic field of an ellipsoidal inclusion, and related problems. *Proc. R. Soc. Lond. A*, 241(1226), 376–396.
 - Gardner, G. H. F., Gardner, L. W., and Gregory, A. R. (1974). Formation velocity and density — The diagnostic basics for stratigraphic traps. *Geophysics*, 39(6), 770–780.

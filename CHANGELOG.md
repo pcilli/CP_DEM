@@ -55,6 +55,15 @@ interface. Tested on GNU Octave 8.4 and written for MATLAB R2016b or later
 - `cpdem_ForwardConduct`: cross-property DEM between two conductivity-like
   properties (thermal from electrical; Cilli and Chapman 2021,
   arXiv:2102.12434), invertible by swapping the roles of the properties.
+- Thermal–electrical model of Cilli and Chapman (arXiv:2102.12434) in
+  full: `cpdem_ForwardConduct` (equations 5–6, exact disk/sphere/needle
+  cases 7–9 with EPAR 0 and Inf accepted), `cpdem_CalibrateConduct`
+  (Section 3: aspect ratio over [0, ∞] and bounded effective inclusion
+  conductivities by l2 misfit, found by a profile search over aspect ratio
+  that is robust to the strong parameter trade-off of this problem),
+  `cpdem_CondCondHS` (thermal–electrical Hashin–Shtrikman
+  bounds by Carcione's stratagem) and `cpdem_PublishedCuGraphite` (the
+  paper's constituent values and solved parameters).
 - Anisotropic inclusion conductivities (`sig2 = [axis plane]`,
   `cpdem_CondIncrement`) in the conductivity DEM, implied porosity and the
   thermal–electrical model, for inclusions such as graphite flakes.

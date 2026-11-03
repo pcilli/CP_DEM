@@ -15,18 +15,24 @@
 %      cross-property relation links the components of the two property
 %      tensors (cpdem_AlignedForwardConduct).
 %
-% The constituent values below are REPRESENTATIVE of a copper-graphite
-% composite and are not those of any particular data set.
+% The constituent values are those quoted by Cilli and Chapman
+% (arXiv:2102.12434) for the copper-graphite composites of Mazloum et al.
+% (2016) (cpdem_PublishedCuGraphite). Note that the paper assumes the
+% randomly oriented flakes to have effective ISOTROPIC conductivities,
+% solved for within the bounds set by the flake's principal values (see
+% cpdem_ThermalConduct_Example); option 1 below instead uses the flake's
+% principal values directly, which is an extension of the toolbox.
 %
 % Part of the Cross-Property DEM Toolbox (CP_DEM) v2.0.
 
-%% Constituents (SI)
-lamCu  = 390;      % thermal conductivity of copper, W/(m K)
-sigCu  = 5.9e7;    % electrical conductivity of copper, S/m
-% Graphite flake: [through-plane (flake axis)  in-plane]
-lamGr  = [10 400];     % W/(m K)
-sigGr  = [1e3 1e5];    % S/m
-alpha  = 0.1;          % flake aspect ratio (thickness / diameter)
+%% Constituents (units as quoted by the paper)
+c = cpdem_PublishedCuGraphite();
+lamCu  = c.kappa1;                              % copper, W/(m K)
+sigCu  = c.sig1;                                % copper, paper units
+% Graphite flake: [unique (short) axis   plane of the two long axes]
+lamGr  = [c.kappaFlakeAxis c.kappaFlakePlane];  % W/(m K)
+sigGr  = [c.sigFlakeAxis   c.sigFlakePlane];    % paper units
+alpha  = c.alphaMeasured;                       % measured flake aspect ratio
 phi    = linspace(0, 0.5, 26);
 phi(1) = 1e-6;
 
@@ -47,6 +53,7 @@ end
 lamFromSig = cpdem_ForwardConduct(lamCu, sigCu, lamGr, sigGr, sigIso(2:end), alpha);
 fprintf('\nThermal from electrical (randomly oriented): max relative error vs the\n');
 fprintf('volume-fraction DEM %.1e\n', max(abs(lamFromSig - lamIso(2:end))./lamIso(2:end)));
+
 
 %% 2. Aligned flakes: transversely isotropic composite
 [lamPar, lamPerp] = cpdem_AlignedCondDEM(phi, lamCu, lamGr, alpha);

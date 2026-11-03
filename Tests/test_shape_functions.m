@@ -36,8 +36,29 @@ end
 [~, ~, Ln] = cpdem_Shape(1e4);
 assert(Ld > 0.999 && Ln < 1e-6, 'disk/needle depolarisation limits');
 
-% Invalid aspect ratios are rejected
-for bad = {0, -1, Inf, NaN, [1 2]}
+% The exact disk and needle limits of Cilli & Chapman (arXiv:2102.12434,
+% equations 8 and 9): EPAR = 0 gives L = 1, EPAR = Inf gives L = 0
+[t, f, L] = cpdem_Shape(0);
+cpdem_AssertClose([t f L], [0 0 1], 0, 0, 'disk limit');
+[t, f, L] = cpdem_Shape(Inf);
+cpdem_AssertClose([t f L], [1 -1 0], 0, 0, 'needle limit');
+% ... and they are the limits of the closed forms
+[t, f, L] = cpdem_Shape(1e-7);
+cpdem_AssertClose([t f L], [0 0 1], 0, 1e-6, 'disk limit approached');
+[t, f, L] = cpdem_Shape(1e7);
+cpdem_AssertClose([t f L], [1 -1 0], 0, 1e-6, 'needle limit approached');
+
+% Extreme aspect ratios are finite and approach the limits smoothly
+for a = [1e-11 1e-9 1e9 1e11 1e13]
+    [t, f, L] = cpdem_Shape(a);
+    assert(all(isfinite([t f L])) && L >= 0 && L <= 1, sprintf('finite at EPAR %g', a));
+end
+[~, ~, L] = cpdem_Shape(1e9);
+cpdem_AssertClose(L, (log(2e9) - 1)/1e18, 1e-6, 0, 'needle asymptote (ln 2M - 1)/M^2');
+
+% Invalid aspect ratios are rejected, and the elastic P, Q reject the
+% singular limits
+for bad = {-1, NaN, [1 2]}
     threw = false;
     try
         cpdem_Shape(bad{1});
@@ -45,6 +66,15 @@ for bad = {0, -1, Inf, NaN, [1 2]}
         threw = true;
     end
     assert(threw, 'cpdem_Shape must reject invalid EPAR');
+end
+for bad = {0, Inf}
+    threw = false;
+    try
+        cpdem_PQ(30e9, 35e9, 2.25e9, 0, bad{1});
+    catch
+        threw = true;
+    end
+    assert(threw, 'cpdem_PQ must reject EPAR 0 and Inf');
 end
 
 end
