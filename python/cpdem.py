@@ -125,6 +125,37 @@ def R_berryman(sig, sig2, epar):
     return mbar(sig, sig2, epar)/(3*np.asarray(sig, float))
 
 
+def cond_increment(sig, sig2, epar):
+    """(1-phi) dsig/dphi for randomly oriented spheroids; sig2 scalar or (axis, plane)."""
+    sig = np.asarray(sig, float)
+    if np.ndim(sig2) == 0:
+        return (sig2 - sig)*mbar(sig, sig2, epar)
+    sa, sp = float(sig2[0]), float(sig2[1])
+    _, _, L = shape(epar)
+    Lp = (1 - L)/2
+    return sig/3*((sa - sig)/(sig + L*(sa - sig)) + 2*(sp - sig)/(sig + Lp*(sp - sig)))
+
+
+def aligned_increment(sig_par, sig_perp, sig2, epar):
+    """DEM increments for aligned spheroids in a transversely isotropic host.
+
+    Affine stretch: EPAR' = EPAR sqrt(sig_perp/sig_par); G_i = sig_i (sig2_i - sig_i)/
+    (sig_i + L_i(EPAR') (sig2_i - sig_i)) with L_axis = L, L_plane = (1 - L)/2.
+    """
+    if np.ndim(sig2) == 0:
+        sa = sp = float(sig2)
+    else:
+        sa, sp = float(sig2[0]), float(sig2[1])
+    _, _, L = shape(epar*math.sqrt(sig_perp/sig_par))
+    Lp = (1 - L)/2
+    return (sig_par*(sa - sig_par)/(sig_par + L*(sa - sig_par)),
+            sig_perp*(sp - sig_perp)/(sig_perp + Lp*(sp - sig_perp)))
+
+
+def _pair(v):
+    return (float(v), float(v)) if np.ndim(v) == 0 else (float(v[0]), float(v[1]))
+
+
 def _eval_epar(epar: EPAR, phi: float) -> float:
     if callable(epar):
         a = float(epar(min(max(phi, 0.0), 1.0)))
@@ -269,7 +300,7 @@ def elec_dem(phi, sig1, sig2, epar: EPAR, rtol=1e-10, atol=1e-13):
     phi = np.asarray(phi, float)
     def deriv(p, y):
         s = sig1*math.exp(y[0])
-        return [(sig2 - s)*mbar(s, sig2, _eval_epar(epar, p))/(s*(1 - p))]
+        return [cond_increment(s, sig2, _eval_epar(epar, p))/(s*(1 - p))]
     Y = _integrate(deriv, phi.ravel(), [0.0], rtol, atol)
     return (sig1*np.exp(Y[:, 0])).reshape(phi.shape)
 
@@ -289,11 +320,11 @@ def implied_porosity(sig0, sig1, sig2, epar: EPAR, rtol=1e-10, atol=1e-13):
     """Porosity the electrical DEM implies for each conductivity."""
     sig0 = np.asarray(sig0, float)
     s = sig0.ravel()
-    ok = _in_range(s, sig1, sig2)
+    ok = _in_range(s, sig1, np.min(sig2)) | _in_range(s, sig1, np.max(sig2))
     phi = np.full(s.size, np.nan)
     def deriv(u, y):
         sig = sig1*math.exp(u)
-        return [sig*(1 - y[0])/((sig2 - sig)*mbar(sig, sig2, _eval_epar(epar, y[0])))]
+        return [sig*(1 - y[0])/cond_increment(sig, sig2, _eval_epar(epar, y[0]))]
     if ok.any():
         phi[ok] = _integrate(deriv, np.log(s[ok]/sig1), [0.0], rtol, atol)[:, 0]
     return phi.reshape(sig0.shape)
@@ -303,18 +334,72 @@ def forward_conduct(p1, sig1, p2, sig2, sig0, epar: EPAR, rtol=1e-10, atol=1e-13
     """Cross-property DEM between two conductivity-like properties (e.g. thermal from electrical)."""
     sig0 = np.asarray(sig0, float)
     s = sig0.ravel()
-    ok = _in_range(s, sig1, sig2)
+    ok = _in_range(s, sig1, np.min(sig2)) | _in_range(s, sig1, np.max(sig2))
     p0 = np.full(s.size, np.nan); phi0 = np.full(s.size, np.nan)
     def deriv(u, y):
         sig = sig1*math.exp(u)
         p, phi = p1*math.exp(y[0]), y[1]
         a = _eval_epar(epar, phi)
-        g = sig/((sig2 - sig)*mbar(sig, sig2, a))
-        return [(p2 - p)*mbar(p, p2, a)/p*g, (1 - phi)*g]
+        g = sig/cond_increment(sig, sig2, a)
+        return [cond_increment(p, p2, a)/p*g, (1 - phi)*g]
     if ok.any():
         Y = _integrate(deriv, np.log(s[ok]/sig1), [0.0, 0.0], rtol, atol)
         p0[ok] = p1*np.exp(Y[:, 0]); phi0[ok] = Y[:, 1]
     return p0.reshape(sig0.shape), phi0.reshape(sig0.shape)
+
+
+def aligned_cond_dem(phi, sig1, sig2, epar: EPAR, rtol=1e-10, atol=1e-13):
+    """Transversely isotropic DEM for aligned spheroids: returns (sig_par, sig_perp).
+
+    sig1: host, scalar or (par, perp); sig2: inclusion, scalar or (axis, plane).
+    """
+    phi = np.asarray(phi, float)
+    s1par, s1perp = _pair(sig1)
+    def deriv(p, y):
+        spar, sperp = s1par*math.exp(y[0]), s1perp*math.exp(y[1])
+        gpar, gperp = aligned_increment(spar, sperp, sig2, _eval_epar(epar, p))
+        return [gpar/spar/(1 - p), gperp/sperp/(1 - p)]
+    Y = _integrate(deriv, phi.ravel(), [0.0, 0.0], rtol, atol)
+    return (s1par*np.exp(Y[:, 0])).reshape(phi.shape), (s1perp*np.exp(Y[:, 1])).reshape(phi.shape)
+
+
+def aligned_forward_conduct(p1, sig1, p2, sig2, sig0, epar: EPAR, which="par", rtol=1e-10, atol=1e-13):
+    """Anisotropic cross-property DEM: both components of p and the other component of
+    sig from one measured component of sig ('par' along the symmetry axis, 'perp' in
+    the plane). Returns a dict with pPar, pPerp, sigPar, sigPerp, phi."""
+    use_par = which.lower() in ("par", "parallel", "axis")
+    s1par, s1perp = _pair(sig1)
+    p1par, p1perp = _pair(p1)
+    s_ref = s1par if use_par else s1perp
+    sig0 = np.asarray(sig0, float)
+    s = sig0.ravel()
+    s2 = np.atleast_1d(np.asarray(sig2, float))
+    lo, hi = min(s_ref, s2.min()), max(s_ref, s2.max())
+    ok = (s >= lo) & (s <= hi) & ~np.isin(s, s2)
+    out = {k: np.full(s.size, np.nan) for k in ("pPar", "pPerp", "sigPar", "sigPerp", "phi")}
+
+    def deriv(u, y):
+        if use_par:
+            spar, sperp = s1par*math.exp(u), s1perp*math.exp(y[0])
+        else:
+            sperp, spar = s1perp*math.exp(u), s1par*math.exp(y[0])
+        ppar, pperp, phi = p1par*math.exp(y[1]), p1perp*math.exp(y[2]), y[3]
+        a = _eval_epar(epar, phi)
+        gspar, gsperp = aligned_increment(spar, sperp, sig2, a)
+        gppar, gpperp = aligned_increment(ppar, pperp, p2, a)
+        rate = gspar/spar if use_par else gsperp/sperp
+        other = gsperp/sperp if use_par else gspar/spar
+        return [other/rate, gppar/ppar/rate, gpperp/pperp/rate, (1 - phi)/rate]
+
+    if ok.any():
+        Y = _integrate(deriv, np.log(s[ok]/s_ref), [0.0, 0.0, 0.0, 0.0], rtol, atol)
+        if use_par:
+            out["sigPar"][ok] = s[ok]; out["sigPerp"][ok] = s1perp*np.exp(Y[:, 0])
+        else:
+            out["sigPerp"][ok] = s[ok]; out["sigPar"][ok] = s1par*np.exp(Y[:, 0])
+        out["pPar"][ok] = p1par*np.exp(Y[:, 1]); out["pPerp"][ok] = p1perp*np.exp(Y[:, 2])
+        out["phi"][ok] = Y[:, 3]
+    return {k: v.reshape(sig0.shape) for k, v in out.items()}
 
 
 def elec_elas_hs(sig, sig_sol, sig_fl, k_sol, k_fl, mu_sol):

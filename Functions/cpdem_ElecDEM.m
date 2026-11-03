@@ -32,7 +32,8 @@ function [sig, mb] = cpdem_ElecDEM(phi, sig1, sig2, epar, opts)
 % Inputs
 %   phi  : porosity, scalar or array, 0 <= phi < 1
 %   sig1 : host conductivity (> 0)
-%   sig2 : inclusion conductivity (> 0)
+%   sig2 : inclusion conductivity (> 0); or [sig2_axis sig2_plane] for an
+%          anisotropic inclusion material (see cpdem_CondIncrement)
 %   epar : aspect ratio (scalar) or function handle epar(phi)
 %   opts : optional cpdem_Options struct
 %
@@ -61,17 +62,20 @@ cpdem_CheckPositive('sig1', sig1, 'sig2', sig2, 'phi>=0', phi);
 if any(phi(:) >= 1)
     error('CPDEM:badInput', 'Porosity must be < 1.');
 end
-if ~isscalar(sig1) || ~isscalar(sig2)
-    error('CPDEM:badInput', 'sig1 and sig2 must be scalars.');
+if ~isscalar(sig1) || numel(sig2) > 2
+    error('CPDEM:badInput', 'sig1 must be a scalar and sig2 a scalar or [sig_axis sig_plane].');
 end
 
 shape = size(phi);
-fun = @(p, y) (sig2 - sig1*exp(y))*mbar(sig1*exp(y), sig2, cpdem_EvalEPAR(epar, p)) ...
+fun = @(p, y) cpdem_CondIncrement(sig1*exp(y), sig2, cpdem_EvalEPAR(epar, p)) ...
               /(sig1*exp(y)*(1 - p));
 Y = cpdem_Integrate(fun, phi(:), 0, opts);
 sig = reshape(sig1*exp(Y(:, 1)), shape);
 
 if nargout > 1
+    if ~isscalar(sig2)
+        error('CPDEM:badInput', 'm-bar is only defined for isotropic inclusions.');
+    end
     mb = zeros(shape);
     for ii = 1:numel(phi)
         mb(ii) = mbar(sig(ii), sig2, cpdem_EvalEPAR(epar, phi(ii)));

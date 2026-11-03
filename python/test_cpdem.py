@@ -112,6 +112,28 @@ def test_thermal_electrical():
     assert np.allclose(sig, SIG0, rtol=1e-6)
 
 
+def test_anisotropic_and_aligned():
+    phi = np.array([0.05, 0.1, 0.2, 0.3, 0.4])
+    assert abs(cpdem.cond_increment(0.3, (5.0, 5.0), 16.4) - (5 - 0.3)*cpdem.mbar(0.3, 5.0, 16.4)) < 1e-14
+    sA = cpdem.elec_dem(phi, 1.0, (100.0, 1e-3), 0.1)
+    assert np.all((sA > cpdem.elec_dem(phi, 1.0, 1e-3, 0.1)) & (sA < cpdem.elec_dem(phi, 1.0, 100.0, 0.1)))
+    spar, sperp = cpdem.aligned_cond_dem(phi, 1.0, 20.0, 1.0)
+    assert np.allclose(spar, sperp, rtol=1e-10)
+    assert np.allclose((spar - 20)/(1 - 20)*(1/spar)**(1/3), 1 - phi, atol=1e-8)
+    spar, sperp = cpdem.aligned_cond_dem(phi, 1.0, 20.0, 1e-7)
+    assert np.allclose(spar, 1/((1 - phi) + phi/20), rtol=1e-5)      # series
+    assert np.allclose(sperp, (1 - phi) + 20*phi, rtol=1e-5)         # parallel
+    spar, sperp = cpdem.aligned_cond_dem(phi, 1.0, 20.0, 1e7)
+    assert np.allclose(spar, (1 - phi) + 20*phi, rtol=1e-5)
+    assert np.allclose((sperp - 20)/(1 - 20)*(1/sperp)**0.5, 1 - phi, atol=1e-5)  # 2-D Bruggeman
+    for epar in (0.1, 16.4):
+        spar, sperp = cpdem.aligned_cond_dem(phi, P["sig1"], P["sig2"], epar)
+        lpar, lperp = cpdem.aligned_cond_dem(phi, 7.7, 0.6, epar)
+        o = cpdem.aligned_forward_conduct(7.7, P["sig1"], 0.6, P["sig2"], spar, epar, "par")
+        assert np.allclose(o["sigPerp"], sperp, rtol=1e-6) and np.allclose(o["pPar"], lpar, rtol=1e-6)
+        assert np.allclose(o["pPerp"], lperp, rtol=1e-6) and np.allclose(o["phi"], phi, atol=1e-8)
+
+
 def test_against_octave_reference():
     """Cross-check with values written by Tests/cpdem_WriteReference.m (GNU Octave)."""
     path = os.path.join(HERE, "reference_values.json")
@@ -133,3 +155,12 @@ def test_against_octave_reference():
         lam, _ = cpdem.forward_conduct(ref["thermal"]["lam1"], prm["sig1"], ref["thermal"]["lam2"],
                                        prm["sig2"], np.array(prm["sig0"]), epar)
         assert np.allclose(lam, case["lam"], rtol=1e-7), f"thermal, EPAR {epar}"
+        if "alignedPar" in case:
+            o = cpdem.aligned_forward_conduct(ref["thermal"]["lam1"], prm["sig1"], ref["thermal"]["lam2"],
+                                              prm["sig2"], np.array(prm["sig0"]), epar, "par")
+            assert np.allclose(o["pPar"], case["alignedPar"], rtol=1e-6), f"aligned par, EPAR {epar}"
+            assert np.allclose(o["pPerp"], case["alignedPerp"], rtol=1e-6), f"aligned perp, EPAR {epar}"
+            assert np.allclose(o["sigPerp"], case["alignedSigPerp"], rtol=1e-6), f"aligned sigPerp, EPAR {epar}"
+            lamA, _ = cpdem.forward_conduct(ref["thermal"]["lam1"], prm["sig1"], (ref["thermal"]["lam2"], 5*ref["thermal"]["lam2"]),
+                                            prm["sig2"], np.array(prm["sig0"]), epar)
+            assert np.allclose(lamA, case["anisoInclusion"], rtol=1e-7), f"anisotropic inclusion, EPAR {epar}"

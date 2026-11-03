@@ -18,7 +18,10 @@ function [p0, phi0] = cpdem_ForwardConduct(p1, sig1, p2, sig2, sig0, epar, opts)
 %
 % Inputs
 %   p1, sig1 : background (mineral) values of the two properties
-%   p2, sig2 : inclusion (fluid) values
+%   p2, sig2 : inclusion values; either may be [axis plane] for an
+%              inclusion material that is itself anisotropic (e.g. the
+%              through-plane and in-plane conductivities of graphite
+%              flakes), see cpdem_CondIncrement
 %   sig0     : measured values of the "known" property, scalar or array,
 %              between sig1 and sig2
 %   epar     : aspect ratio (scalar) or function handle of porosity
@@ -39,8 +42,9 @@ else
     opts = cpdem_Options(opts);
 end
 cpdem_CheckPositive('p1', p1, 'sig1', sig1, 'p2', p2, 'sig2', sig2, 'sig0', sig0);
-if ~all([isscalar(p1), isscalar(sig1), isscalar(p2), isscalar(sig2)])
-    error('CPDEM:badInput', 'End-member properties must be scalars.');
+if ~isscalar(p1) || ~isscalar(sig1) || numel(p2) > 2 || numel(sig2) > 2
+    error('CPDEM:badInput', ...
+        'Host properties must be scalars; inclusion properties scalars or [axis plane] pairs.');
 end
 
 shape = size(sig0);
@@ -49,7 +53,8 @@ sig0 = sig0(:);
 p0 = nan(n, 1);
 phi0 = nan(n, 1);
 
-bad = ~cpdem_InRange(sig0, repmat(sig1, n, 1), repmat(sig2, n, 1));
+lo = min([sig1 sig2(:).']); hi = max([sig1 sig2(:).']);
+bad = ~(sig0 >= lo & sig0 <= hi) | any(sig0 == sig2(:).', 2);
 if any(bad)
     warning('CPDEM:outOfRange', ...
         '%d of %d values lie outside (sig1, sig2); NaN returned for them.', nnz(bad), n);
@@ -73,7 +78,7 @@ sig = sig1*exp(u);
 p   = p1*exp(y(1));
 phi = y(2);
 alpha = cpdem_EvalEPAR(epar, phi);
-g = sig/((sig2 - sig)*mbar(sig, sig2, alpha));
-dy = [ (p2 - p)*mbar(p, p2, alpha)/p*g;
+g = sig/cpdem_CondIncrement(sig, sig2, alpha);     % = sig/((sig2 - sig) m-bar) when isotropic
+dy = [ cpdem_CondIncrement(p, p2, alpha)/p*g;
        (1 - phi)*g ];
 end

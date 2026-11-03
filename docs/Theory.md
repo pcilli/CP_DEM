@@ -151,6 +151,50 @@ $$
 
 implemented in `cpdem_ForwardConduct`.
 
+### Anisotropic inclusions and aligned inclusions (extension)
+
+For an ellipsoidal inclusion whose principal conductivities
+$\sigma_{2,j}$ lie along its geometric axes, the dilute field inside the
+inclusion along axis $j$ is $E_j/E_{0,j} = [1 + L_j(\sigma_{2,j}/\sigma - 1)]^{-1}$,
+so the orientation-averaged DEM increment for randomly oriented spheroids
+becomes
+
+$$
+(1-\phi)\frac{d\sigma}{d\phi} = \frac{\sigma}{3}\sum_{j=1}^{3}\frac{\sigma_{2,j}-\sigma}{\sigma+L_j(\sigma_{2,j}-\sigma)},
+$$
+
+which reduces to $(\sigma_2-\sigma)\bar m$ for an isotropic inclusion
+(`cpdem_CondIncrement`). This covers inclusions such as graphite flakes,
+whose intrinsic anisotropy the thermal–electrical preprint handles with
+bounding isotropic values.
+
+If the inclusions are all aligned, the effective medium is transversely
+isotropic, $\sigma_\parallel$ along the common axis and $\sigma_\perp$ in
+the plane. Stretching the coordinates by $1/\sqrt{\sigma_i}$ makes the
+current host isotropic, leaves the field ratios and the volume fraction
+unchanged, scales the inclusion conductivity to $\sigma_{2,i}/\sigma_i$,
+and turns the spheroid into a spheroid of aspect ratio
+$\alpha' = \alpha\sqrt{\sigma_\perp/\sigma_\parallel}$. Hence
+
+$$
+(1-\phi)\frac{d\sigma_i}{d\phi} = \frac{\sigma_i(\sigma_{2,i}-\sigma_i)}{\sigma_i+L_i(\alpha')(\sigma_{2,i}-\sigma_i)},
+\qquad L_\parallel = L(\alpha'),\ L_\perp = \tfrac12[1-L(\alpha')]
+$$
+
+(`cpdem_AlignedIncrement`, `cpdem_AlignedCondDEM`). The tests confirm the
+exact limits: aligned thin disks give the series (harmonic) average along
+the axis and the parallel (arithmetic) average in the plane; aligned long
+needles give the arithmetic average along the axis and the two-dimensional
+Bruggeman model, $\frac{\sigma-\sigma_2}{\sigma_1-\sigma_2}(\sigma_1/\sigma)^{1/2}=1-\phi$,
+in the plane; spheres give the isotropic Bruggeman model in both. For two
+properties with aligned inclusions the four equations share $\phi$, and
+the chain rule with one measured component as the independent variable
+gives the other three (`cpdem_AlignedForwardConduct`), again free of the
+volume fraction. These aligned-inclusion functions go beyond the published
+isotropic model and should be reconciled with the author's forthcoming
+anisotropic cross-property DEM; the elastic analogue (which needs the
+Hill tensor of a transversely isotropic host) is not implemented.
+
 ### Two EPARs
 
 Theoretical inclusion modelling uses one aspect ratio. For real rocks Cilli

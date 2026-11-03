@@ -24,7 +24,11 @@ cases = cell(1, numel(epars));
 for ii = 1:numel(epars)
     [k0, mu0, phi0] = cpdem_Forward(p.k1, p.mu1, p.sig1, p.k2, p.mu2, p.sig2, p.sig0, epars(ii));
     lam = cpdem_ForwardConduct(7.7, p.sig1, 0.6, p.sig2, p.sig0, epars(ii));
-    cases{ii} = struct('epar', epars(ii), 'k0', k0, 'mu0', mu0, 'phi0', phi0, 'lam', lam);
+    o = cpdem_AlignedForwardConduct(7.7, p.sig1, 0.6, p.sig2, p.sig0, epars(ii), 'par');
+    lamA = cpdem_ForwardConduct(7.7, p.sig1, [0.6 3.0], p.sig2, p.sig0, epars(ii));
+    cases{ii} = struct('epar', epars(ii), 'k0', k0, 'mu0', mu0, 'phi0', phi0, 'lam', lam, ...
+                       'alignedPar', o.pPar, 'alignedPerp', o.pPerp, 'alignedSigPerp', o.sigPerp, ...
+                       'anisoInclusion', lamA);
 end
 ref.cases = [cases{:}];
 

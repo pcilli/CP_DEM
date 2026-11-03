@@ -33,7 +33,11 @@ same model and a backward-compatible interface.
   porosity-dependent aspect ratio such as the power law of Cilli and
   Chapman (2020).
 - Link **thermal and electrical conductivity** with the same construction
-  (`cpdem_ForwardConduct`; Cilli and Chapman, 2021, arXiv:2102.12434).
+  (`cpdem_ForwardConduct`; Cilli and Chapman, 2021, arXiv:2102.12434),
+  including inclusion materials that are themselves anisotropic (graphite
+  flakes), and an **aligned-inclusion, transversely isotropic** version of
+  the conductivity DEM and its cross-property form
+  (`cpdem_AlignedCondDEM`, `cpdem_AlignedForwardConduct`).
 
 Everything runs on MATLAB (R2016b or later, no toolboxes needed) and on
 GNU Octave (tested on 8.4), is covered by a test suite that runs in
@@ -168,6 +172,8 @@ and every default reproduces the paper's choice.
 | Single-property DEMs (`cpdem_ElecDEM`, `cpdem_ElasDEM`) | The two schemes the paper combines; `cpdem_ElecDEM` also evaluates the grain-inclusion form of Cilli and Chapman (2020) and Sen et al. (1981), see its help |
 | Porosity-dependent aspect ratio (`epar = @(phi) ...`) | The power-law construction of Cilli and Chapman (2020), with the law supplied by you |
 | Thermal from electrical conductivity (`cpdem_ForwardConduct`) | Cilli and Chapman (2021), arXiv:2102.12434 |
+| Anisotropic inclusion conductivities, `sig2 = [axis plane]` (`cpdem_CondIncrement`) | *extension*: orientation average of the per-axis concentration factors of an anisotropic ellipsoid, for the graphite-flake case the preprint discusses with bounding isotropic values |
+| Aligned inclusions, transversely isotropic DEM and cross-property (`cpdem_AlignedCondDEM`, `cpdem_AlignedForwardConduct`) | *extension*: classical affine-stretch treatment of aligned spheroids in an anisotropic matrix, checked against the exact laminate and fibre limits; to be reconciled with the author's forthcoming anisotropic cross-property DEM |
 | Implied porosity output and `cpdem_ImpliedPorosity` | *extension*: a diagnostic; porosity is a dummy variable of the model and the DEM porosity need not equal the true porosity |
 | Density from the implied porosity (`dens.method = 'implied'`) | *extension*: not in the paper, which used Gardner's relation |
 | Integration in log conductivity, scaled state, tolerances, one integration per data set | numerical scheme only; the equations are unchanged (see `docs/Theory.md`) |
@@ -185,7 +191,8 @@ rocks in Cilli and Chapman (2021).
 | `cpdem_Inverse` | Conductivity from a bulk or shear modulus (direct integration) |
 | `cpdem_ModelVpVs` | Vp, Vs and Vp/Vs from conductivity, with three density options |
 | `cpdem_CalibrateEPAR` | Calibrate $\alpha_K$ and $\alpha_\mu$ (whole data set or per sample) with fit statistics |
-| `cpdem_ForwardConduct` | Cross-property DEM between two conductivity-like properties (thermal from electrical) |
+| `cpdem_ForwardConduct` | Cross-property DEM between two conductivity-like properties (thermal from electrical); inclusions may be anisotropic |
+| `cpdem_AlignedCondDEM`, `cpdem_AlignedForwardConduct` | Transversely isotropic DEM for aligned spheroids and its cross-property form |
 | `cpdem_ElecDEM`, `cpdem_ElasDEM` | Single-property electrical and elastic DEMs versus porosity |
 | `cpdem_ImpliedPorosity` | Porosity the electrical DEM implies for a conductivity |
 | `cpdem_ElecElasHS` | Electrical–elastic Hashin–Shtrikman bounds and the porosity bounds behind them |
@@ -234,6 +241,7 @@ laboratory data that are not redistributed here):
 | `cpdem_SolveConduct_Example` | Direct inversion of moduli for conductivity, unreachable measurements |
 | `cpdem_PorosityAndArchie_Example` | The single-property DEMs, implied porosity, $\bar m$ as a generalised cementation exponent, EPAR(φ) |
 | `cpdem_ThermalConduct_Example` | Thermal conductivity from electrical conductivity |
+| `cpdem_AnisotropicConduct_Example` | Graphite-like anisotropic flakes, randomly oriented and aligned; the transversely isotropic cross-property relation |
 
 `cpdem_RunExamples` runs them all (`cpdem_RunExamples(true)` also saves the
 figures to `ExampleScripts/output`); set the environment variable

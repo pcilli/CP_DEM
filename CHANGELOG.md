@@ -55,6 +55,13 @@ interface. Tested on GNU Octave 8.4 and written for MATLAB R2016b or later
 - `cpdem_ForwardConduct`: cross-property DEM between two conductivity-like
   properties (thermal from electrical; Cilli and Chapman 2021,
   arXiv:2102.12434), invertible by swapping the roles of the properties.
+- Anisotropic inclusion conductivities (`sig2 = [axis plane]`,
+  `cpdem_CondIncrement`) in the conductivity DEM, implied porosity and the
+  thermal–electrical model, for inclusions such as graphite flakes.
+- `cpdem_AlignedCondDEM`, `cpdem_AlignedForwardConduct`: transversely
+  isotropic DEM for aligned spheroids (affine stretch of the host) and its
+  cross-property form, tested against the exact laminate, fibre and sphere
+  limits.
 - `cpdem_ModelVpVs`: Vp, Vs and Vp/Vs from conductivity with measured,
   implied-porosity or Gardner densities (v1.0 had only Gardner, in a script).
 - `cpdem_ElecElasHS`: input validation and the porosity bounds as extra

@@ -40,8 +40,8 @@ else
     opts = cpdem_Options(opts);
 end
 cpdem_CheckPositive('sig0', sig0, 'sig1', sig1, 'sig2', sig2);
-if ~isscalar(sig1) || ~isscalar(sig2)
-    error('CPDEM:badInput', 'sig1 and sig2 must be scalars.');
+if ~isscalar(sig1) || numel(sig2) > 2
+    error('CPDEM:badInput', 'sig1 must be a scalar and sig2 a scalar or [sig_axis sig_plane].');
 end
 
 shape = size(sig0);
@@ -49,13 +49,14 @@ n = numel(sig0);
 sig0 = sig0(:);
 phi = nan(n, 1);
 
-bad = ~cpdem_InRange(sig0, repmat(sig1, n, 1), repmat(sig2, n, 1));
+lo = min([sig1 sig2(:).']); hi = max([sig1 sig2(:).']);
+bad = ~(sig0 >= lo & sig0 <= hi) | any(sig0 == sig2(:).', 2);
 if any(bad)
     warning('CPDEM:outOfRange', ...
         '%d of %d conductivities lie outside (sig1, sig2); NaN returned for them.', nnz(bad), n);
 end
 
-fun = @(u, p, e) sig1*exp(u)*(1 - p)/((sig2 - sig1*exp(u))*mbar(sig1*exp(u), sig2, cpdem_EvalEPAR(e, p)));
+fun = @(u, p, e) sig1*exp(u)*(1 - p)/cpdem_CondIncrement(sig1*exp(u), sig2, cpdem_EvalEPAR(e, p));
 
 if isnumeric(epar) && ~isscalar(epar)
     if numel(epar) ~= n

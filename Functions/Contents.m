@@ -14,6 +14,8 @@
 %   cpdem_CalibrateEPAR   - Calibrate alpha_K and alpha_mu to joint data sets
 %   cpdem_ForwardConduct  - Cross-property DEM between two conductivity-like
 %                           properties (e.g. thermal from electrical)
+%   cpdem_AlignedCondDEM  - Transversely isotropic DEM for aligned spheroids
+%   cpdem_AlignedForwardConduct - Its cross-property form
 %
 % Single-property DEM and diagnostics
 %   cpdem_ElecDEM         - Electrical DEM: conductivity vs porosity
